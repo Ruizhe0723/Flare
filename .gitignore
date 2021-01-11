@@ -6,7 +6,6 @@
 *.opj
 *.exe
 *.xlsx
-*.m
 __pycache__/
 gmon.out
 fort*

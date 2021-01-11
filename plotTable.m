@@ -2,16 +2,16 @@ clear all; clc; close all
 
 data = dlmread('chemTab_01.dat');
 
-Z = reshape(data(:,1),[401 501]); 
+Z = reshape(data(:,1),[401 501]);
 Z = squeeze(Z(1,:));
 
-c = reshape(data(:,2),[401 501]); 
+c = reshape(data(:,2),[401 501]);
 c = squeeze(c(:,1));
 
 %%
 close all
 
-Q = reshape(data(:,13),[401 501]); 
+Q = reshape(data(:,13),[401 501]);
 
 figure
 plot(Q(:),'.')
