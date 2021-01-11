@@ -28,10 +28,10 @@ from scipy import interpolate
 Load Cantera data and interpolate to meshgrid 
 
 =========================================================================== '''
-def interpLamFlame(solIdx,cbDict,meshgrid):
-
+def interpLamFlame(work_dir,solIdx,cbDict,meshgrid):
+        
     # read laminar flame global parameters & write Table_5 
-    solFln = ('canteraData/solution_' 
+    solFln = (work_dir + 'canteraData/solution_' 
               + str('{:02d}'.format(solIdx-1)) + '/')
     lamArr = []
     with open(solFln + 'lamParameters.txt') as f:
@@ -58,7 +58,7 @@ def interpLamFlame(solIdx,cbDict,meshgrid):
               )
     
     # read cantera solutions & calculate c,omega_c
-    nScalCant = cbDict['nSpeMech']+cbDict['nVarCant']
+    nScalCant = cbDict['nSpeMech'] + cbDict['nVarCant']
     mainData = np.zeros((cbDict['nchemfile'],int(max(lamArr[:,2])),nScalCant))
     cIn = np.zeros(np.shape(mainData[:,:,0]))
     omega_cIn = np.zeros(np.shape(mainData[:,:,0]))
@@ -89,7 +89,7 @@ def interpLamFlame(solIdx,cbDict,meshgrid):
             print('c_max/c_end =',mainData[i,imax,0]/mainData[i,len_grid-1,0],
                   ' --> overshooting')
         
-        omega_cIn[i,:] = mainData[i,:,1]/ mainData[i,imax,0]
+        omega_cIn[i,:] = mainData[i,:,1] / mainData[i,imax,0]
         
         # Yc_eq[i] = mainData[i,-1,0]
         # # calculate d2Yc_eq/dZ2 & write Table 2
@@ -113,21 +113,38 @@ def interpLamFlame(solIdx,cbDict,meshgrid):
         np.savetxt(fln,MatScl_c[i,:,:],fmt='%.5e')
         
     oriSclMat = np.zeros([cbDict['nchemfile']+2,cbDict['cUnifPts'],nScalCant])
+    ind_list_Yis = []
     for i in range(len(streamBC[:,0])):
+        
         if i == 0: j = len(oriSclMat[:,0,0]) - 1
         else: j = 0
         for k in range(len(streamBC[0,:])):
-            oriSclMat[j,:,k+2] = streamBC[i,k] 
-        # INSERT Yi BCs HERE
+            # for thermo scalars
+            if k < len(streamBC[0,:]) - 2*cbDict['nYis']:
+                oriSclMat[j,:,k+2] = streamBC[i,k]
+            else:
+                nk = k 
+                break
+            
+        # for selected species 
+        for s in range(cbDict['nYis']):
+            ispc=int(streamBC[i,nk+s*2])
+            if i == 0: ind_list_Yis.append(ispc)
+            iscal = cbDict['nVarCant']+ispc
+            oriSclMat[j,:,iscal]=streamBC[i,nk+s*2+1]    
+    
     oriSclMat[1:cbDict['nchemfile']+1,:,:] = MatScl_c
     
     intpSclMat = np.zeros([len(meshgrid['z_space']),len(meshgrid['c_space']),
                            cbDict['nVarCant']+1])
-    Yi_vals = np.zeros([len(meshgrid['z_space']),len(meshgrid['c_space']),
-                        cbDict['nSpeMech']])
+    intpYiMat = np.zeros([len(meshgrid['z_space']),len(meshgrid['c_space']),
+                        cbDict['nYis']])
     Z_pts = np.insert(lamArr[:,1],0,[0.],axis=0)
     Z_pts = np.insert(Z_pts,len(Z_pts),[1.],axis=0)
     c_pts = MatScl_c[0,:,0]
+    
+    np.array(ind_list_Yis)
+    
     print('\nInterpolating...')
     intpSclMat[:,:,0] = interp2D(oriSclMat[:,:,3],Z_pts,c_pts,meshgrid) # rho
     for k in [1,4,5,6]: # omega_c,cp_e,mw,hf
@@ -136,24 +153,29 @@ def interpLamFlame(solIdx,cbDict,meshgrid):
     intpSclMat[:,:,8] = interp2D(oriSclMat[:,:,7],Z_pts,c_pts,meshgrid) # nu
     intpSclMat[:,:,9] = interp2D(oriSclMat[:,:,8],Z_pts,c_pts,meshgrid) # h
     intpSclMat[:,:,10] = interp2D(oriSclMat[:,:,9],Z_pts,c_pts,meshgrid) # qdot
-    for y in range(cbDict['nSpeMech']):
-        Yi_vals[:,:,y] = interp2D(oriSclMat[:,:,y+cbDict['nVarCant']],
+    for y in range(cbDict['nYis']):
+        iy = ind_list_Yis[y]
+        intpYiMat[:,:,y] = interp2D(oriSclMat[:,:,iy+cbDict['nVarCant']],
                                             Z_pts,c_pts,meshgrid)
     print('\nInterpolation done. ')
+    
     if np.sum(np.isnan(intpSclMat)) > 0: 
         print('\nNumber of Nans detected: ', np.sum(np.isnan(intpSclMat)))
     else: print('\nNo Nans detected. Well done!')
     
     print('\nwriting chemTab file...')
-    fln = './chemTab_' + str('{:02d}'.format(solIdx)) + '.dat'
     Arr_c,Arr_Z = np.meshgrid(meshgrid['c_space'],meshgrid['z_space'])
     Idx_outLmt = np.hstack([(Arr_Z>cbDict['f_max']).nonzero(),
                              (Arr_Z<cbDict['f_min']).nonzero()])
-    intpSclMat[:,:,1][Idx_outLmt[0],Idx_outLmt[1]] = 0.
-    chemMat = np.insert(intpSclMat,0,Arr_c,axis=2)
+    ind_rates=[1,9]
+    intpSclMat[:,:,ind_rates][Idx_outLmt[0],Idx_outLmt[1]] = 0.
+    chemMat = np.append(intpSclMat,intpYiMat,axis=2)
+    chemMat = np.insert(chemMat,0,Arr_c,axis=2)
     chemMat = np.insert(chemMat,0,Arr_Z,axis=2)
     stackMat = np.reshape(chemMat,[np.shape(chemMat)[0]*np.shape(chemMat)[1],
                               np.shape(chemMat)[2]])
+    
+    fln = work_dir + 'chemTab_' + str('{:02d}'.format(solIdx)) + '.dat'
     np.savetxt(fln,stackMat,fmt='%.5E')
     print('\nDone.')
     

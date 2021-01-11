@@ -15,15 +15,23 @@ Created on Tue Mar 31 12:04:25 2020
 import cantera as ct
 import numpy as np
 import sys
+import os
+
 # =============================================================================
 #
 # Function definitions
 #
 # =============================================================================
 
-def adiabaticFlame(solIdx,cbDict):
-    solFln = ('canteraData/solution_' 
+def adiabaticFlame(work_dir,solIdx,cbDict):
+    
+    path=work_dir + 'canteraData/'
+    if not os.path.isdir(path): os.mkdir(path)
+        
+    solFln = (work_dir + 'canteraData/solution_' 
               + str('{:02d}'.format(solIdx-1)) + '/')
+    if not os.path.isdir(solFln): os.mkdir(solFln)
+    
     CASENAME = 'CH4' # case name
     p =  101325  # pressure [Pa]
     Lx = 0.05 # Domain size for the simulation [m] 
@@ -37,14 +45,14 @@ def adiabaticFlame(solIdx,cbDict):
     
     W_fuel = fuel_C * 12. + fuel_H * 1.0 # DO NOT CHANGE - fuel molar weight
     
-    T_fuel = 200. # Fuel temperature [K]
+    T_fuel = 315. # Fuel temperature [K]
     X_fuel = 'CH4:1' # Fuel composition (in mole fraction)
     
     ## Oxidiser characteristics
     W_O2 = 2. * 16. # DO NOT CHANGE - molar weight of O2
     W_N2 = 2. * 14. # DO NOT CHANGE - molar weight of N2
     
-    T_ox = 333. # oxidiser temperature [K]
+    T_ox = 315. # oxidiser temperature [K]
     X_ox = 'O2:0.21, N2:0.79' # oxidiser composition (in mole fraction)
     
     ## Mixture properties
@@ -189,7 +197,8 @@ def adiabaticFlame(solIdx,cbDict):
         phi_tab[i,7] = sum_CpdT
     
     ###### calculate boundary conditions for pure fuel and oxidiser
-    BCdata = np.zeros((2,7))
+    nscal_BC = 7
+    BCdata = np.zeros((2,nscal_BC+2*cbDict['nYis']))
     gas_fuel = ct.Solution(chemMech,'gri30_multi')
     gas_fuel.TPX = T_fuel,p,X_fuel
     BCdata[0,0] = gas_fuel.T
@@ -254,10 +263,36 @@ def adiabaticFlame(solIdx,cbDict):
     print('T_ox_approx: {0:7f}'.format((BCdata[1,6]-BCdata[1,4])/BCdata[1,2]
                                        +298.15))
     
+    # species BCs
+    for s in range(cbDict['nYis']):
+        ispc = gas.species_index(cbDict['spc_names'][s])
+        iBC = (nscal_BC-1) + s*2 + 1
+        BCdata[0,iBC] = ispc                
+        BCdata[1,iBC] = ispc
+        iBC = (nscal_BC-1) + (s+1)*2
+        if gas_fuel.Y[ispc]>1.e-30:
+            BCdata[0,iBC] = gas_fuel.Y[ispc]
+        if gas_ox.Y[ispc]>1.e-30:
+            BCdata[1,iBC] = gas_ox.Y[ispc]
+        
     # save the laminar parameters of all the flamelets 
+    fmt_str1=''
+    for ff in range(len(phi_tab[0,:])): 
+        if ff == 2: 
+            fmt_str1 = fmt_str1 + '%04d '
+        else: 
+            fmt_str1 = fmt_str1 + '%.5e '
+    fmt_str2=''
+    for ff in range(len(BCdata[0,:])): 
+        nn = ff - nscal_BC
+        if nn >= 0 and nn % 2 == 0: 
+            fmt_str2 = fmt_str2 + '%04d '
+        else: 
+            fmt_str2 = fmt_str2 + '%.5e ' 
+        
     fln_phi_tab = solFln + 'lamParameters.txt'
     with open(fln_phi_tab,'w') as strfile:
       strfile.write(CASENAME + '\n')
-      np.savetxt(strfile,phi_tab,fmt='%.5e %.5e %04d %.5e %.5e %.5e %.5e %.5e')
-      np.savetxt(strfile,BCdata,fmt='%.5e %.5e %.5e %.5e %.5e %.5e %.5e')
+      np.savetxt(strfile,phi_tab,fmt=fmt_str1.strip())
+      np.savetxt(strfile,BCdata,fmt=fmt_str2.strip())
     strfile.close()

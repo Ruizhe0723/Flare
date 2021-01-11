@@ -31,21 +31,23 @@ def load_dict():
                     'transModel' : 'Mix',
                         
                     'f_min' : 2.85e-02,
-                    'f_max' : 8.5e-02,
-                    'nchemfile' : 20,
+                    'f_max' : 15.0e-02,
+                    'nchemfile' : 50,
                     'nVarCant' : 10,
                     'cUnifPts' : 1001,
                     'n_points_z' : 501,
                     'n_points_c' : 401,
                     'n_points_h' : 1,
                     
-                    'int_pts_z' : 20,
-                    'int_pts_c' : 21,
+                    'int_pts_z' : 80,
+                    'int_pts_c' : 51,
                     'int_pts_gz' : 15,
-                    'int_pts_gc' : 11,
+                    'int_pts_gc' : 21,
                     'int_pts_gcz' : 1,
                     'nScalars' : 11,
-                    'nYis' : 1
+                    
+                    'nYis' : 3,
+                    'spc_names' : ['H2O','CO','CO2']
                 }
     
     return commDict
@@ -69,20 +71,20 @@ def create_meshgrid(cbDict):
     
     return meshgrid
 
-def create_manifold(cbDict):
+# def create_manifold(cbDict):
     
-    z_int = np.zeros([cbDict['n_points_z'],])
-    nn = int((cbDict['n_points_z'] - 1)/5*4 + 1)
-    for i in range(len(z_space)):
-        if i < nn: 
-            z_space[i] = cbDict['f_max']*1.2/(nn-1)*i
-        else:
-            z_space[i] = cbDict['f_max']*1.2 + (1.-cbDict['f_max']*1.2)/(cbDict['n_points_z']-nn)*(i-nn+1)
-    c_space = np.linspace(0.,1.,cbDict['n_points_c'])
+#     z_int = np.zeros([cbDict['n_points_z'],])
+#     nn = int((cbDict['n_points_z'] - 1)/5*4 + 1)
+#     for i in range(len(z_space)):
+#         if i < nn: 
+#             z_space[i] = cbDict['f_max']*1.2/(nn-1)*i
+#         else:
+#             z_space[i] = cbDict['f_max']*1.2 + (1.-cbDict['f_max']*1.2)/(cbDict['n_points_z']-nn)*(i-nn+1)
+#     c_space = np.linspace(0.,1.,cbDict['n_points_c'])
 
-    meshgrid = {
-                'z_space' : z_space,
-                'c_space' : c_space,
-           }
+#     meshgrid = {
+#                 'z_space' : z_space,
+#                 'c_space' : c_space,
+#            }
     
-    return meshgrid
+#     return meshgrid
