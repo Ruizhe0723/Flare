@@ -26,14 +26,14 @@ def adiabaticFlame(solIdx,cbDict):
               + str('{:02d}'.format(solIdx-1)) + '/')
     CASENAME = 'CH4' # case name
     p =  101325  # pressure [Pa]
-    Lx = 0.05 # Domain size for the simulation [m] - has to be larger than flame thickness
+    Lx = 0.05 # Domain size for the simulation [m] 
     chemMech = cbDict['chemMech'] # chemical mechanism
     
     ## Fuel characteristics
     fuel_species = 'CH4' # Fuel is assumed to be of the form CxHy
     fuel_C = 1. # number of C atoms in the fuel
     fuel_H = 4. # number of H atoms in the fuel
-    stoich_O2 = fuel_C+fuel_H/4. # DO NOT CHANGE - stoichiometric air mole fraction
+    stoich_O2 = fuel_C+fuel_H/4. # DO NOT CHANGE - stoich air mole fraction
     
     W_fuel = fuel_C * 12. + fuel_H * 1.0 # DO NOT CHANGE - fuel molar weight
     
@@ -48,8 +48,10 @@ def adiabaticFlame(solIdx,cbDict):
     X_ox = 'O2:0.21, N2:0.79' # oxidiser composition (in mole fraction)
     
     ## Mixture properties
-    Zst = (W_fuel) / (W_fuel + stoich_O2 * ( W_O2 + 3.76 * W_N2) ) # DO NOT CHANGE - stoichiometric mixture fraction
-    Z = np.linspace(cbDict['f_min'],cbDict['f_max'],cbDict['nchemfile']) # DO NOT CHANGE - array of mixture fraction of interest
+    # DO NOT CHANGE - stoichiometric mixture fraction
+    Zst = (W_fuel) / (W_fuel + stoich_O2 * ( W_O2 + 3.76 * W_N2) ) 
+    # DO NOT CHANGE - array of mixture fraction of interest
+    Z = np.linspace(cbDict['f_min'],cbDict['f_max'],cbDict['nchemfile'])
     
     # DO NOT CHANGE BELOW THIS LINE
     phi = Z*(1.0 - Zst) / (Zst*(1.0 - Z))
@@ -143,7 +145,7 @@ def adiabaticFlame(solIdx,cbDict):
       data[:,9] = f.heat_release_rate
     
       data[:,cbDict['nVarCant']:
-             cbDict['nSpeMech']+cbDict['nVarCant']] = np.transpose(f.Y) # store species mass fractions
+             cbDict['nSpeMech']+cbDict['nVarCant']] = np.transpose(f.Y) 
     
       # save flamelet data
       fln = solFln + CASENAME + '_' + '{:03d}'.format(i) + '.csv'
@@ -217,7 +219,8 @@ def adiabaticFlame(solIdx,cbDict):
     BCdata[0,5] = gas_fuel.viscosity/gas_fuel.density_mass
     BCdata[0,6] = gas_fuel.enthalpy_mass
     
-    print('T_fuel_approx: {0:7f}'.format((BCdata[0,6]-BCdata[0,4])/BCdata[0,2]+298.15))
+    print('T_fuel_approx: {0:7f}'.format((BCdata[0,6]-BCdata[0,4])
+                                         /BCdata[0,2]+298.15))
     
     gas_ox = ct.Solution(chemMech,'gri30_multi')
     gas_ox.TPX = T_ox,p,X_ox
@@ -248,7 +251,8 @@ def adiabaticFlame(solIdx,cbDict):
     BCdata[1,5] = gas_ox.viscosity
     BCdata[1,6] = gas_ox.enthalpy_mass/gas_ox.density_mass
     
-    print('T_ox_approx: {0:7f}'.format((BCdata[1,6]-BCdata[1,4])/BCdata[1,2]+298.15))
+    print('T_ox_approx: {0:7f}'.format((BCdata[1,6]-BCdata[1,4])/BCdata[1,2]
+                                       +298.15))
     
     # save the laminar parameters of all the flamelets 
     fln_phi_tab = solFln + 'lamParameters.txt'

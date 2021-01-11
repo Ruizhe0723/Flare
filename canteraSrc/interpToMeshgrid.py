@@ -62,7 +62,7 @@ def interpLamFlame(solIdx,cbDict,meshgrid):
     mainData = np.zeros((cbDict['nchemfile'],int(max(lamArr[:,2])),nScalCant))
     cIn = np.zeros(np.shape(mainData[:,:,0]))
     omega_cIn = np.zeros(np.shape(mainData[:,:,0]))
-    Yc_eq = np.zeros((cbDict['nchemfile']))
+    # Yc_eq = np.zeros((cbDict['nchemfile']))
     for i in range(cbDict['nchemfile']):
         fln = (solFln + casename + '_' + str('{:03d}'.format(i)) + '.csv')
         print('\nReading --> ' + fln)
@@ -121,9 +121,9 @@ def interpLamFlame(solIdx,cbDict,meshgrid):
         # INSERT Yi BCs HERE
     oriSclMat[1:cbDict['nchemfile']+1,:,:] = MatScl_c
     
-    intpSclMat = np.zeros([len(meshgrid['Z_space']),len(meshgrid['c_space']),
+    intpSclMat = np.zeros([len(meshgrid['z_space']),len(meshgrid['c_space']),
                            cbDict['nVarCant']+1])
-    Yi_vals = np.zeros([len(meshgrid['Z_space']),len(meshgrid['c_space']),
+    Yi_vals = np.zeros([len(meshgrid['z_space']),len(meshgrid['c_space']),
                         cbDict['nSpeMech']])
     Z_pts = np.insert(lamArr[:,1],0,[0.],axis=0)
     Z_pts = np.insert(Z_pts,len(Z_pts),[1.],axis=0)
@@ -146,7 +146,7 @@ def interpLamFlame(solIdx,cbDict,meshgrid):
     
     print('\nwriting chemTab file...')
     fln = './chemTab_' + str('{:02d}'.format(solIdx)) + '.dat'
-    Arr_c,Arr_Z = np.meshgrid(meshgrid['c_space'],meshgrid['Z_space'])
+    Arr_c,Arr_Z = np.meshgrid(meshgrid['c_space'],meshgrid['z_space'])
     Idx_outLmt = np.hstack([(Arr_Z>cbDict['f_max']).nonzero(),
                              (Arr_Z<cbDict['f_min']).nonzero()])
     intpSclMat[:,:,1][Idx_outLmt[0],Idx_outLmt[1]] = 0.
@@ -177,33 +177,33 @@ def calculateCp_eff(T,cp_m,lam_sumCpdT):
     
 def interp2D(M_Zc,Z_pts,c_pts,meshgrid):
     f = interpolate.interp2d(c_pts,Z_pts,M_Zc)
-    intpM_Zc = f(meshgrid['c_space'],meshgrid['Z_space'])
+    intpM_Zc = f(meshgrid['c_space'],meshgrid['z_space'])
     return intpM_Zc     
 
-def generateTable2(Z0,Yc_eq0):
-    Z0 = lamArr[:,1]
-    Yc_eq0 = Yc_eq
-    from scipy.interpolate import UnivariateSpline
-    sp = UnivariateSpline(Z0,Yc_eq0,s=0)
-    Z1 = np.linspace(min(Z0),0.085,101);
-    Yc_eq1 = sp(Z1)
-#    plt.plot(Z0,Yc_eq0,label='original')
-#    plt.plot(Z1,Yc_eq1,label='spline')
-#    plt.legend()
-#    plt.show()
-    d2 = sp.derivative(n=2)
-    d2Yc_eq1 = d2(Z1)
-    sp = UnivariateSpline(Z1,d2Yc_eq1)
-    d2Yc_eq2 = sp(Z1)
-    from scipy.signal import savgol_filter
-    d2Yc_eq3 = savgol_filter(d2Yc_eq2, 11, 3)
-    plt.plot(Z1,d2Yc_eq1,label='original')
-    plt.plot(Z1,d2Yc_eq3,label='spline')
-    plt.legend()
-    plt.show()
-    '''
-        INCOMPLETE
-                    '''
+# def generateTable2(Z0,Yc_eq0):
+#     Z0 = lamArr[:,1]
+#     Yc_eq0 = Yc_eq
+#     from scipy.interpolate import UnivariateSpline
+#     sp = UnivariateSpline(Z0,Yc_eq0,s=0)
+#     Z1 = np.linspace(min(Z0),0.085,101);
+#     Yc_eq1 = sp(Z1)
+# #    plt.plot(Z0,Yc_eq0,label='original')
+# #    plt.plot(Z1,Yc_eq1,label='spline')
+# #    plt.legend()
+# #    plt.show()
+#     d2 = sp.derivative(n=2)
+#     d2Yc_eq1 = d2(Z1)
+#     sp = UnivariateSpline(Z1,d2Yc_eq1)
+#     d2Yc_eq2 = sp(Z1)nScalars
+#     from scipy.signal import savgol_filter
+#     d2Yc_eq3 = savgol_filter(d2Yc_eq2, 11, 3)
+#     plt.plot(Z1,d2Yc_eq1,label='original')
+#     plt.plot(Z1,d2Yc_eq3,label='spline')
+#     plt.legend()
+#     plt.show()
+#     '''
+#         INCOMPLETE
+#                     '''
     
 #def scatterInterp(M_Zc):
 #    Zcoor_1D = np.reshape(Z_grid,[np.shape(Z_grid)[0]*np.shape(Z_grid)[1],1])

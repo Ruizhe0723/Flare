@@ -1,54 +1,40 @@
-! ----------------------------------------------------------------------------------
-!                                              |
-!   =======     //        \\      F laRe       |  University of Cambridge
-!   ||         // \\    // \\     T urbulent   |  Department of Engineering
-!   ||        //   \\  //   \\    F lame       |  Hopkinson Laboratory
-!   =======  //     \\//     \\   M anifold    |
-!                                              |
-! CAMBRIDGE-MHI Combustion Instability Project |  Copyright (C) 2016-2019
-! ------------------------------------------------------------------------------
+! ----------------------------------------------------------------------
 ! Copyright
-!     This file is distributed within the Camrbidge-MHI framework only.
 !
 ! Application
-!     Cambridge FlaRe Combustion Model - Turbulent flame manifold integration
+!   FlaRe Combustion Model - Turbulent flame manifold
 !
 ! Description
-!     This Fortran code describes the flamelet manifold integration
-!     to be used in the Cambridge FlaRe Combustion Model.
-! ------------------------------------------------------------------------------
-
-      program riemannCZ
-      implicit none
-
-      include 'mpif.h'
-!      include 'data.inc'
-      include 'integrate.inc'
+!   This Fortran code describes the flamelet manifold integration
+!     to be used in the FlaRe Combustion Model.
+! ======================================================================
+! Dec 2020 -- Rewritten by Z.X. Chen @ Camrbidge
+! ----------------------------------------------------------------------
+program main
+  !
+  use mpi
+  use integrate
+  use pdf
+  use func, only: locate
+  !
+  implicit none
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! + +
 ! + +                          Declaration
 ! + +
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-      integer ierr, nproc, my_id
-      integer iUnit_low, iUnit_high
-
-      integer i,j,k,l,m,i1,iii,iiii,jjjj,z_loc,c_loc,nn,solIdx
-      double precision c_space(n_points_c), z_space(n_points_z)
-     &     ,c_int(int_pts_c),z_int(int_pts_z)
-     &     ,gz_int(int_pts_gz),gc_int(int_pts_gc),gcz_int(int_gcz)
-     &     ,gc,gz,gcz!,dum,c_mean
-     &     ,yint(nScalars),Yi_int(nYis)
-     &     ,Src_vals(n_points_z,n_points_c,nScalars)
-     &     ,Yi_vals(n_points_z,n_points_c,nYis)
-      double precision theta,expnts(int_pts_gz-1)
-      parameter(theta = 1.0D0)
-
-      integer load_distro(1000),load_idx(1000)
-      integer nwork,iproc
-
-      character*2 strUnit2,strDouble
-      ! character*50 dumStr
+      integer ::  ierr,nproc,my_id,load_distro(1000),load_idx(1000)
+      integer ::  iUnit_low,iUnit_high,nwork,iproc
+      integer ::  i,j,k,l,m,i1,iii,iiii,jjjj,z_loc,c_loc,nn,solIdx
+      real(8) :: &
+        c_space(n_points_c),z_space(n_points_z),c_int(int_pts_c), &
+        z_int(int_pts_z),gz_int(int_pts_gz),gc_int(int_pts_gc), &
+        gcz_int(int_gcz),gc,gz,gcz,yint(nScalars),Yi_int(nYis), &
+        Src_vals(n_points_z,n_points_c,nScalars), &
+        Yi_vals(n_points_z,n_points_c,nYis),expnts(int_pts_gz-1)
+      real(8),parameter :: theta = 1.0d0
+      character(len=2) :: strUnit2,strDouble
 
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! + +
@@ -72,10 +58,10 @@
          load_idx(iproc+1) = load_idx(iproc)+load_distro(iproc+1)
        enddo
 
-       if (my_id.eq.0) then
+       if (my_id==0) then
          iUnit_low = 1
          iUnit_high = load_idx(1)
-       elseif (my_id.eq.(nproc-1)) then
+       elseif (my_id==(nproc-1)) then
          iUnit_low = load_idx(my_id)+1
          iUnit_high = int_pts_z
        else
@@ -90,9 +76,6 @@
 
       DO solIdx = 1,n_points_h
 
-!        call interpLamFlame(z_space,c_space,Src_vals,Yi_vals,solIdx)
-!        goto 10
-
         write(strDouble,'(I2.2)') solIdx
         write(*,*) 'Reading chemTab...'
         open(unit=20, file='chemTab_'//strDouble//'.dat', status='old')
@@ -100,29 +83,20 @@
 !        read(20,*) dumStr
         do i=1,n_points_z
             do j=1,n_points_c
-            read(20,*) z_space(i),c_space(j)
-     &                ,(Src_vals(i,j,iii),iii=1,nScalars)
+            read(20,*) z_space(i),c_space(j) &
+                     ,(Src_vals(i,j,iii),iii=1,nScalars)
 !     &                ,(Yi_vals(i,j,jjj),jjj=1,nYis)
             enddo
         enddo
         close(20)
        write(*,*) 'Done reading chemTab.'
 
-! 	open(unit=32,file='canteraData/solution_00/lamParameters.txt'
-!      &     ,status='old')
-! 	read(32,*) dumStr
-! 	do i = 1,nchemfile
-! 	  read(32,*) dum,z_lam(i),(dum,j=1,6)
-! 	enddo
-! 	close(32)
-
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! + +
 ! + +                          MPI allocation
 ! + +
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-      write(*,*) my_id, ' integrating from ', iUnit_low, '-',
-     &  iUnit_high
+      write(*,*) my_id,' integrating from ',iUnit_low, '-',iUnit_high
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! + +
 ! + +       Assign discretisation number for 5 control parameters:
@@ -140,28 +114,17 @@
         z_int(i) = fmix_max*1.2+(1.-fmix_max*1.2)/(int_pts_z-nn)*(i-nn)
       enddo
 
-
 !     c space: linear between 0 and 1
 
       c_int(1) = 0.0
       c_int(int_pts_c) = 1.0
 
       do i = 2,int_pts_c-1
-         c_int(i) = c_int(1) +(i - 1)*(c_int(int_pts_c)-c_int(1))
-     &                               /(int_pts_c -1)
+         c_int(i) = c_int(1) +(i - 1)*(c_int(int_pts_c)-c_int(1)) &
+                                    /(int_pts_c -1)
       enddo
 
 !     gZ space: non-linear
-!!*!! the upper limit depends on the cold flow solution usually <0.2
-!      gz_int(int_pts_gz) = 0.05
-!      gz_int(1) = 0.
-!      gz_int(int_pts_gz-1) = 0.03
-!      gz_int(int_pts_gz-2) = 0.02
-!      do i = 2, int_pts_gz-3
-!        gz_int(i) = gz_int(1) +(i - 1)*(gz_int(int_pts_gz-2)-gz_int(1))
-!     &        /(int_pts_gz -3)
-!      enddo
-
       gz_int(1) = 0.
       do i = 1,int_pts_gz-1
         expnts(i) = -4. + (i-1)*(-1.-(-4.))/(int_pts_gz-2)
@@ -173,8 +136,8 @@
       gc_int(int_pts_gc) = 1. - smaller
 
       do i=2,int_pts_gc-1
-          gc_int(i) = gc_int(1) +(i - 1)*(gc_int(int_pts_gc)-gc_int(1))
-     &                                  /(int_pts_gc -1)
+          gc_int(i) = gc_int(1) +(i - 1)*(gc_int(int_pts_gc)-gc_int(1))&
+                                       /(int_pts_gc -1)
       enddo
 
 !      gZc space: linear between -1 and 1
@@ -206,18 +169,18 @@
                do m=1,int_gcz       !!*!! gZc=0
 !     convert to variances
 
-           call locate2(z_space,n_points_z,z_int(i1),z_loc)
-           call locate2(c_space,n_points_c,c_int(j),c_loc)
+           z_loc=locate(z_space,n_points_z,z_int(i1))
+           c_loc=locate(c_space,n_points_c,c_int(j))
            gc=gc_int(l)*(c_int(j)*(1.0-c_int(j)))
            gz=gz_int(k)*(z_int(i1)*(1.0-z_int(i1)))
 
            !! Z=0 or Z=1
-           IF((i1.eq.1).or.(i1.eq.int_pts_z))then
+           IF((i1==1).or.(i1==int_pts_z))then
              yint(2) = 0.
              yint(3) = 0.
              yint(4) = 0.
 
-             if(i1.eq.int_pts_z)then
+             if(i1==int_pts_z)then
                z_loc = z_loc + 1
              endif
              do jjjj=5,nScalars
@@ -228,48 +191,47 @@
              enddo
 
            !! gZ=0 and gc=0
-           ELSEIF(  ((k.eq.1).and.(l.eq.1))
-     &          .or.((k.eq.1).and.(j.eq.1))
-     &          .or.((k.eq.1).and.(j.eq.int_pts_c))  )then
-             call delta(z_int(i1),c_int(j),z_space,c_space,yint
-     &    ,Src_vals,Yi_int,Yi_vals)
+         ELSEIF(  ((k==1).and.(l==1)) .or. ((k==1).and.(j==1)) &
+              .or.((k==1).and.(j==int_pts_c))  )then
+             call delta(z_int(i1),c_int(j),z_space,c_space,yint &
+         ,Src_vals,Yi_int,Yi_vals)
 
            !! gZ=0 and gc>0
-           ELSEIF(  (k.eq.1).and.(l.gt.1)  )then
-             call cbeta(c_int(j),gc,c_space,z_int(i1),z_space,yint
-     &    ,Src_vals,Yi_int,Yi_vals)
+           ELSEIF(  (k==1).and.(l.gt.1)  )then
+             call cbeta(c_int(j),gc,c_space,z_int(i1),z_space,yint &
+         ,Src_vals,Yi_int,Yi_vals)
 
            !! gZ>0 and gc=0
-           ELSEIF(  (k.gt.1).and.(l.eq.1)  )then
-             call zbeta(z_int(i1),gz,z_space,c_int(j),c_space,yint
-     &    ,Src_vals,Yi_int,Yi_vals)
+           ELSEIF(  (k.gt.1).and.(l==1)  )then
+             call zbeta(z_int(i1),gz,z_space,c_int(j),c_space,yint &
+         ,Src_vals,Yi_int,Yi_vals)
 
            !! gZ>0 and gc>0
            ELSE
-!             if((j.eq.1))then
+!             if((j==1))then
 !             c_mean = small
-!             elseif((j.eq.int_pts_c))then
+!             elseif((j==int_pts_c))then
 !             c_mean = 1.-small
 !             else
 !             c_mean = c_int(j)
 !             endif
 !             gc=gc_int(l)*(c_mean*(1.0-c_mean))
-             if((j.eq.1).or.(j.eq.int_pts_c))then
+             if((j==1).or.(j==int_pts_c))then
                goto 99
              endif
 
              gcz = gcz_int(m)*sqrt(gc)*sqrt(gz)*0.98
-               call int_point(z_int(i1),c_int(j),gc
-     &             ,gz,gcz,yint,z_space,c_space,Src_vals
-     &             ,Yi_int,Yi_vals,theta)
+               call int_point(z_int(i1),c_int(j),gc &
+                  ,gz,gcz,yint,z_space,c_space,Src_vals &
+                  ,Yi_int,Yi_vals,theta)
 
            ENDIF
 
 !!*!! write out the scalars needed in cgs units
 !     1:rho 2:omegac 3:c*omegac 4:Z*omegac 5:Cp 6:MW 7:formEnthal 8:T
 
- 99       write(7,200)z_int(i1),c_int(j),gz_int(k),gc_int(l),gcz_int(m)
-     &           ,(yint(iii),iii=2,3),(yint(iii),iii=5,11)
+ 99       write(7,200)z_int(i1),c_int(j),gz_int(k),gc_int(l),gcz_int(m)&
+                ,(yint(iii),iii=2,3),(yint(iii),iii=5,11)
 
 !        write(77,200)z_int(i1),c_int(j),gz_int(k),gc_int(l),gcz_int(m)
 !      &       ,(Yi_int(iii),iii=1,nYis)
@@ -284,11 +246,10 @@
        enddo
 
       ENDDO
-       call MPI_FINALIZE ( ierr ) ! nakd2
+       call MPI_FINALIZE ( ierr )
 
-! 100  format(a20,e9.3,a5,e9.3,a6,e9.3,a6,e9.3,a7,16e13.6)
  200  format(25e15.5)
 
       write(*,*) "Done"
 
-      end
+    end program main

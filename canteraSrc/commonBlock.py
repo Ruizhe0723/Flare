@@ -34,11 +34,18 @@ def load_dict():
                     'f_max' : 8.5e-02,
                     'nchemfile' : 20,
                     'nVarCant' : 10,
-#                    'solIdx' : 1,
                     'cUnifPts' : 1001,
-                    # 'nScalars' : 7,
                     'n_points_z' : 501,
                     'n_points_c' : 401,
+                    'n_points_h' : 1,
+                    
+                    'int_pts_z' : 20,
+                    'int_pts_c' : 21,
+                    'int_pts_gz' : 15,
+                    'int_pts_gc' : 11,
+                    'int_pts_gcz' : 1,
+                    'nScalars' : 11,
+                    'nYis' : 1
                 }
     
     return commDict
@@ -46,17 +53,35 @@ def load_dict():
 
 def create_meshgrid(cbDict):
     
-    Z_space = np.zeros([cbDict['n_points_z'],])
+    z_space = np.zeros([cbDict['n_points_z'],])
     nn = int((cbDict['n_points_z'] - 1)/5*4 + 1)
-    for i in range(len(Z_space)):
+    for i in range(len(z_space)):
         if i < nn: 
-            Z_space[i] = cbDict['f_max']*1.2/(nn-1)*i
+            z_space[i] = cbDict['f_max']*1.2/(nn-1)*i
         else:
-            Z_space[i] = cbDict['f_max']*1.2 + (1.-cbDict['f_max']*1.2)/(cbDict['n_points_z']-nn)*(i-nn+1)
+            z_space[i] = cbDict['f_max']*1.2 + (1.-cbDict['f_max']*1.2)/(cbDict['n_points_z']-nn)*(i-nn+1)
     c_space = np.linspace(0.,1.,cbDict['n_points_c'])
 
     meshgrid = {
-                'Z_space' : Z_space,
+                'z_space' : z_space,
+                'c_space' : c_space,
+           }
+    
+    return meshgrid
+
+def create_manifold(cbDict):
+    
+    z_int = np.zeros([cbDict['n_points_z'],])
+    nn = int((cbDict['n_points_z'] - 1)/5*4 + 1)
+    for i in range(len(z_space)):
+        if i < nn: 
+            z_space[i] = cbDict['f_max']*1.2/(nn-1)*i
+        else:
+            z_space[i] = cbDict['f_max']*1.2 + (1.-cbDict['f_max']*1.2)/(cbDict['n_points_z']-nn)*(i-nn+1)
+    c_space = np.linspace(0.,1.,cbDict['n_points_c'])
+
+    meshgrid = {
+                'z_space' : z_space,
                 'c_space' : c_space,
            }
     
