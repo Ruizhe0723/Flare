@@ -118,6 +118,7 @@ module pdf
     do i=1,n_points_c-1
       cdf001(i) =betai(alpha_c,beta_c,(space(i)+space(i+1))/2.0)
     enddo
+    cdf001(n_points_c)=1.d0
     !
     do j=1,nScalars
       !
@@ -248,6 +249,7 @@ module pdf
     do i=1,n_points_z-1
         cdf001(i) =betai(alpha_z,beta_z,(space(i)+space(i+1))/2.0)
     enddo
+    cdf001(n_points_z)=1.d0
     !
     do j=1,nScalars
       !! get derivative
@@ -291,6 +293,7 @@ module pdf
          *(space(2)-space(1))/2.0+sc_vals_int(n_points_z,j)
     enddo !nScalars
     !
+
     do j=1,nYis
       ! compute derivatives
       do i=1,n_points_z-1

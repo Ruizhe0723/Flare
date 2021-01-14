@@ -6,9 +6,11 @@ module integrate
   implicit none
   !
   integer :: &
-    n_points_z,n_points_c,int_pts_z,int_pts_c,int_gcz,int_pts_gz, &
-    int_pts_gc,nYis,nScalars,nchemfile,nSpeMech,n_points_h
+    n_points_z,n_points_c,int_pts_z,int_pts_c,int_pts_gcz,int_pts_gz, &
+    int_pts_gc,nYis,nScalars,nchemfile,nSpeMech,n_points_h,ii
     !
+  real(8),allocatable :: &
+    c_int(:),z_int(:),gz_int(:),gc_int(:),gcz_int(:)
   real(8) :: small,clip,smaller,fmix_min,fmix_max
   parameter (small = 1.0d-04)
   parameter (smaller = 1.0d-08)
@@ -17,28 +19,51 @@ module integrate
   contains
   !
   ! Z.Chen-----------interpolation points for laminar flame data------------------
-  parameter(nSpeMech = 53)
-
-  parameter(fmix_min = 2.85e-02,fmix_max = 9.50e-02)
-
-  parameter(nchemfile = 20)
-
-  parameter (n_points_z = 501)
-
-  parameter (n_points_c = 401)
-
-  parameter (n_points_h = 1)
-
-  ! Z.Chen-----------turbulent table dimension------------------------------------
-
-      parameter (int_pts_z = 20)  !best if mod(int_pts_z-2)/Nproc = 0
-      parameter (int_pts_gz = 15)
-      parameter (int_gcz = 1)
-      parameter (int_pts_c = 21)
-      parameter (int_pts_gc = 11)
-
-      parameter (nScalars = 11)   !number of scalars to be integrated
-      ! parameter (scalars = nScalars + nSpeMech)   !number of scalars in chemTab
-      parameter (nYis = 3)      !number of Yis to be integrated
-
+  subroutine read_integrate_inp(my_id)
+    !
+    ! arguments
+    integer, intent(in) :: my_id
+    !
+    open(unit=25, file='./integrate.inp', status='old')
+    !
+    if(my_id==0) print*, '>> reading from ./integrate.inp ...'
+    read(25,*) nSpeMech
+    if(my_id==0) print*, '>> read nSpeMech ---->', nSpeMech
+    !
+    read(25,*) fmix_min,fmix_max
+    if(my_id==0) print*, '>> read fmix_min ---->',fmix_min
+    if(my_id==0) print*, '>> read fmix_max ---->',fmix_max
+    !
+    read(25,*) nchemfile
+    if(my_id==0) print*, '>> read nchemfile ---->', nchemfile
+    !
+    read(25,*) n_points_z,n_points_c,n_points_h
+    if(my_id==0) print*, '>> read n_points_z ---->',n_points_z
+    if(my_id==0) print*, '>> read n_points_c ---->',n_points_c
+    if(my_id==0) print*, '>> read n_points_h ---->',n_points_h
+    !
+    ! Z.Chen-----------turbulent table dimension------------------------------------
+    !
+    read(25,*) int_pts_z,int_pts_c,int_pts_gz,int_pts_gc,int_pts_gcz
+    if(my_id==0) print*, '>> read int_pts_z ---->',int_pts_z
+    if(my_id==0) print*, '>> read int_pts_c ---->',int_pts_c
+    if(my_id==0) print*, '>> read int_pts_gz ---->',int_pts_gz
+    if(my_id==0) print*, '>> read int_pts_gc ---->',int_pts_gc
+    if(my_id==0) print*, '>> read int_pts_gcz ---->',int_pts_gcz
+    !
+    allocate(z_int(int_pts_z),c_int(int_pts_c), &
+      gz_int(int_pts_gz),gc_int(int_pts_gc),gcz_int(int_pts_gcz))
+      !
+    read(25,*) (z_int(ii),ii=1,int_pts_z)
+    read(25,*) (c_int(ii),ii=1,int_pts_c)
+    read(25,*) (gz_int(ii),ii=1,int_pts_gz)
+    read(25,*) (gc_int(ii),ii=1,int_pts_gc)
+    read(25,*) (gcz_int(ii),ii=1,int_pts_gcz)
+    !
+    read(25,*) nScalars,nYis
+    if(my_id==0) print*, '>> read nScalars ---->',nScalars
+    if(my_id==0) print*, '>> read nYis ---->',nYis
+    !
+  end subroutine read_integrate_inp
+  !
 end module integrate

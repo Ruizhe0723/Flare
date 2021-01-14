@@ -11,11 +11,14 @@ c = squeeze(c(:,1));
 %%
 close all
 
-Q = reshape(data(:,13),[401 501]);
+for ii = 3:size(data,2)
+    Q = reshape(data(:,ii),[401 501]);
+
+% figure
+% plot(Q(:),'.')
 
 figure
-plot(Q(:),'.')
-
-figure
-contourf(Z,c,Q,100,'EdgeColor','None'); colormap jet;
+contourf(Z,c,Q,20,'EdgeColor','None'); colormap jet;
 % xlim([0 0.1])
+end 
+

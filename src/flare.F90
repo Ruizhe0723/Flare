@@ -24,15 +24,12 @@ program main
 ! + +
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-      integer ::  ierr,nproc,my_id,load_distro(1000),load_idx(1000)
+      integer ::  ierr,nproc,my_id,load_distro(0:9999),load_idx(0:9999)
       integer ::  iUnit_low,iUnit_high,nwork,iproc
-      integer ::  i,j,k,l,m,i1,iii,iiii,jjjj,z_loc,c_loc,nn,solIdx
-      real(8) :: &
-        c_space(n_points_c),z_space(n_points_z),c_int(int_pts_c), &
-        z_int(int_pts_z),gz_int(int_pts_gz),gc_int(int_pts_gc), &
-        gcz_int(int_gcz),gc,gz,gcz,yint(nScalars),Yi_int(nYis), &
-        Src_vals(n_points_z,n_points_c,nScalars), &
-        Yi_vals(n_points_z,n_points_c,nYis),expnts(int_pts_gz-1)
+      integer ::  i,j,k,l,m,i1,iii,iiii,jjjj,z_loc,c_loc,solIdx
+      real(8),allocatable :: c_space(:),z_space(:),yint(:),Yi_int(:), &
+                             Src_vals(:,:,:),Yi_vals(:,:,:)
+      real(8) :: gc,gz,gcz
       real(8),parameter :: theta = 1.0d0
       character(len=2) :: strUnit2,strDouble
 
@@ -45,106 +42,67 @@ program main
       call MPI_INIT(ierr)
       call MPI_COMM_RANK(MPI_COMM_WORLD,my_id,ierr)
       call MPI_COMM_SIZE(MPI_COMM_WORLD,nproc,ierr)
-! Load distribution across cores
-       nwork = int_pts_z - 2!ZC: fist and last are instant
-       do iproc=1,nproc
-         load_distro(iproc) = floor(dble(nwork)/(nproc - iproc +1))
-         nwork = nwork - load_distro(iproc)
-       enddo
-       load_idx(:) = 0
-       load_distro(:) = 0
-       load_idx(1) = load_distro(1) + 1
-       do iproc = 1,nproc-1
-         load_idx(iproc+1) = load_idx(iproc)+load_distro(iproc+1)
-       enddo
 
-       if (my_id==0) then
-         iUnit_low = 1
-         iUnit_high = load_idx(1)
-       elseif (my_id==(nproc-1)) then
-         iUnit_low = load_idx(my_id)+1
-         iUnit_high = int_pts_z
-       else
-         iUnit_low = load_idx(my_id) + 1
-         iUnit_high = load_idx(my_id+1)
-       endif
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! + +
 ! + +           Interpolation from laminar flame table to chemTab
 ! + +
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+    call read_integrate_inp(my_id)
+    call MPI_Barrier(MPI_COMM_WORLD,ierr)
+    !
+    allocate( &
+      c_space(n_points_c),z_space(n_points_z),yint(nScalars), &
+      Yi_int(nYis),Src_vals(n_points_z,n_points_c,nScalars), &
+      Yi_vals(n_points_z,n_points_c,nYis),)
+
       DO solIdx = 1,n_points_h
 
         write(strDouble,'(I2.2)') solIdx
-        write(*,*) 'Reading chemTab...'
+        if(my_id==1) write(*,*) 'Reading chemTab...'
         open(unit=20, file='chemTab_'//strDouble//'.dat', status='old')
 !        read(20,*) dumStr
 !        read(20,*) dumStr
         do i=1,n_points_z
             do j=1,n_points_c
             read(20,*) z_space(i),c_space(j) &
-                     ,(Src_vals(i,j,iii),iii=1,nScalars)
-!     &                ,(Yi_vals(i,j,jjj),jjj=1,nYis)
+                     ,(Src_vals(i,j,iii),iii=1,nScalars) &
+                     ,(Yi_vals(i,j,iii),iii=1,nYis)
             enddo
         enddo
         close(20)
-       write(*,*) 'Done reading chemTab.'
+        if(my_id==1) write(*,*) 'Done reading chemTab.'
+        call MPI_Barrier(MPI_COMM_WORLD,ierr)
 
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! + +
 ! + +                          MPI allocation
 ! + +
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-      write(*,*) my_id,' integrating from ',iUnit_low, '-',iUnit_high
-! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-! + +
-! + +       Assign discretisation number for 5 control parameters:
-! + +                    Z_Til,c_Til,gZ,gc,gZc
-! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! Load distribution across cores
+   nwork = int_pts_z
+   do iproc=1,nproc
+     load_distro(iproc) = floor(dble(nwork)/(nproc - iproc +1))
+     nwork = nwork - load_distro(iproc)
+   enddo
+   load_idx(1) = load_distro(1)
+   do iproc = 1,nproc-1
+     load_idx(iproc+1) = load_idx(iproc) + load_distro(iproc+1)
+   enddo
+!        write(*,*) load_idx(1:nproc)
+   if (my_id.eq.0) then
+     iUnit_low = 1
+     iUnit_high = load_idx(1)
+   elseif (my_id.eq.(nproc-1)) then
+     iUnit_low = load_idx(my_id) +1
+     iUnit_high = int_pts_z
+   else
+     iUnit_low = load_idx(my_id) + 1
+     iUnit_high = load_idx(my_id+1)
+   endif
 
-!!*!! Z space: non-linear, refined near Zst
-      z_int(1) = 0.0
-      z_int(int_pts_z) =  1.0
-      nn = int_pts_z/20*19
-      do i = 2,nn
-        z_int(i) = fmix_max*1.2/(nn-1)*(i-1)
-      enddo
-      do i = nn+1,int_pts_z-1
-        z_int(i) = fmix_max*1.2+(1.-fmix_max*1.2)/(int_pts_z-nn)*(i-nn)
-      enddo
-
-!     c space: linear between 0 and 1
-
-      c_int(1) = 0.0
-      c_int(int_pts_c) = 1.0
-
-      do i = 2,int_pts_c-1
-         c_int(i) = c_int(1) +(i - 1)*(c_int(int_pts_c)-c_int(1)) &
-                                    /(int_pts_c -1)
-      enddo
-
-!     gZ space: non-linear
-      gz_int(1) = 0.
-      do i = 1,int_pts_gz-1
-        expnts(i) = -4. + (i-1)*(-1.-(-4.))/(int_pts_gz-2)
-        gz_int(i+1) = 10.**expnts(i)
-      enddo
-
-!     gc space: linear between 0 and 1
-      gc_int(1) = 0.0
-      gc_int(int_pts_gc) = 1. - smaller
-
-      do i=2,int_pts_gc-1
-          gc_int(i) = gc_int(1) +(i - 1)*(gc_int(int_pts_gc)-gc_int(1))&
-                                       /(int_pts_gc -1)
-      enddo
-
-!      gZc space: linear between -1 and 1
-!      do i = 1,int_gcz
-!        gcz_int(i) = -1.0 + 2./(int_gcz-1)*(i-1)
-!      enddo
-      gcz_int(1) = 0.
+    write(*,*) my_id,' integrating from ',iUnit_low, '-',iUnit_high
 
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! + +
@@ -153,10 +111,11 @@ program main
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 !     looping in Z space
-         do i1 = 3,3!iUnit_low,iUnit_high
+         do i1 = iUnit_low,iUnit_high
          write(strUnit2,'(I2.2)') i1
          write(strDouble,'(I2.2)') solIdx
-         open(unit=7, file='unit'//strUnit2//'_h'//strDouble//'.dat')
+         open(unit=7, file='unit'//strUnit2//'_h' &
+              //strDouble//'.dat')
 !          open(unit=77, file='Yiunit'//strUnit2//'_'//strDouble//'.dat')
 
 !     looping in c space
@@ -166,7 +125,7 @@ program main
 !     looping in gc space
              do l=1,int_pts_gc
 !     looping in gZc space
-               do m=1,int_gcz       !!*!! gZc=0
+               do m=1,int_pts_gcz       !!*!! gZc=0
 !     convert to variances
 
            z_loc=locate(z_space,n_points_z,z_int(i1))
@@ -228,10 +187,11 @@ program main
            ENDIF
 
 !!*!! write out the scalars needed in cgs units
-!     1:rho 2:omegac 3:c*omegac 4:Z*omegac 5:Cp 6:MW 7:formEnthal 8:T
+!     1:rho 2:omegac 3:c*omegac 4:Cp 5:MW 6:Hf0 7:T 8:nu 9:h 10:qdot
 
  99       write(7,200)z_int(i1),c_int(j),gz_int(k),gc_int(l),gcz_int(m)&
-                ,(yint(iii),iii=2,3),(yint(iii),iii=5,11)
+              ,(yint(iii),iii=2,3),(yint(iii),iii=5,nScalars) &
+              ,(Yi_int(iii),iii=1,nYis)
 
 !        write(77,200)z_int(i1),c_int(j),gz_int(k),gc_int(l),gcz_int(m)
 !      &       ,(Yi_int(iii),iii=1,nYis)
@@ -248,8 +208,8 @@ program main
       ENDDO
        call MPI_FINALIZE ( ierr )
 
- 200  format(25e15.5)
+       if(my_id==1) write(*,*) "Done"
 
-      write(*,*) "Done"
+ 200  format(25e15.5)
 
     end program main
