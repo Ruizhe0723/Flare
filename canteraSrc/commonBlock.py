@@ -14,6 +14,7 @@ Created on Fri Apr  3 12:26:49 2020
 
 import cantera as ct
 import numpy as np
+import os
 
 # :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 #
@@ -26,9 +27,16 @@ def load_dict():
     chemMech = 'gri30.xml'
 
     commDict =  {
+                     'work_dir' : ('/home/zc252/OpenFOAM_run/' +
+                                   'TNF/new-case_reacting_2p6/' +
+                                   'flareTable_unscaledPV/'),
+
+                     'output_fln' : 'flare.tbl',
+
                     'chemMech' : chemMech,
                     'nSpeMech' : ct.Solution(chemMech).n_total_species,
                     'transModel' : 'Mix',
+                    'scaled_PV' : False,
 
                     'f_min' : 2.85e-02,
                     'f_max' : 15.0e-02,
@@ -44,10 +52,14 @@ def load_dict():
                     'int_pts_gz' : 15,
                     'int_pts_gc' : 21,
                     'int_pts_gcz' : 1,
-                    'nScalars' : 11,
+                    'nScalars' : 12,
 
                     'nYis' : 3,
-                    'spc_names' : ['H2O','CO','CO2']
+                    'spc_names' : ['H2O','CO','CO2'],
+
+                    'small' : 1.0e-4,
+                    'n_procs' : 16,
+                    'exe_path' : '~/Dropbox/Codes/flare/bin/flare'
                 }
 
     return commDict
@@ -56,7 +68,7 @@ def load_dict():
 def create_meshgrid(cbDict):
 
   z_space = np.linspace(0,1,cbDict['n_points_z'])
-  nn = int(cbDict['n_points_z']/5*4)
+  nn = int(cbDict['n_points_z']/20*19)
   for i in range(nn):
       z_space[i] = cbDict['f_max']*1.2/(nn-1)*i
   z_space[nn-1:] = np.linspace(cbDict['f_max']*1.2,1.0,
@@ -69,11 +81,13 @@ def create_meshgrid(cbDict):
 
   return meshgrid
 
-def create_manifold(work_dir,cbDict):
+def create_manifold(cbDict):
+
+  work_dir = cbDict['work_dir']
 
   # assign the manifold control parameters
   z_int = np.linspace(0,1,cbDict['int_pts_z'])
-  nn = int(cbDict['int_pts_z']/5*4)
+  nn = int(cbDict['int_pts_z']/20*19)
   for i in range(nn):
     z_int[i] = cbDict['f_max']*1.2/(nn-1)*i
   z_int[nn-1:] = np.linspace(cbDict['f_max']*1.2,1.0,
@@ -82,11 +96,13 @@ def create_manifold(work_dir,cbDict):
   c_int = np.linspace(0,1,cbDict['int_pts_c'])
   #
   gz_int = np.zeros(cbDict['int_pts_gz'])
-  gz_int[1:] = np.logspace(-4,-0.5,cbDict['int_pts_gz']-1)
+  gz_int[1:] = np.logspace(-4,-1,cbDict['int_pts_gz']-1)
   #
-  gc_int = np.linspace(0,1,cbDict['int_pts_gc'])
+  gc_int = np.linspace(0,1-cbDict['small'],cbDict['int_pts_gc'])
   #
   gcz_int = np.linspace(0,0,cbDict['int_pts_gcz'])
+
+  if not os.path.isdir(work_dir): os.mkdir(work_dir)
 
   # write the manifold control parameters
   fln = work_dir + 'integrate.inp'

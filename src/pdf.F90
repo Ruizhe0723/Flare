@@ -111,8 +111,8 @@ module pdf
     y_int(:)=0.d0
     Yi_int(:)=0.d0
     !
-    alpha_c=mean*(((mean*(1.d0-mean))/g_var)-1.d0)
-    beta_c=(1.d0-mean)*(((mean*(1.d0-mean))/g_var)-1.d0)
+    alpha_c=mean*((1.d0/g_var)-1.d0)
+    beta_c=(1.d0-mean)*((1.d0/g_var)-1.d0)
     !
     !     ===== integration by part ====
     do i=1,n_points_c-1
@@ -204,13 +204,13 @@ module pdf
   ! ********************************************************************
   ! ********************************************************************
     !
-    use integrate, only: n_points_z,n_points_c,nScalars,nYis,smaller
+    use integrate, only: n_points_z,n_points_c,nScalars,nYis!,smaller
     use func, only: betai,locate,intfac
     !
     ! arguments
-    real(8), intent(inout) :: space(:)
-    real(8), intent(in) :: &
-      mean,g_var,c_mean,c_space(:),sc_vals(:,:,:),Yi_vals(:,:,:)
+    ! real(8), intent(inout) :: space(:)
+    real(8), intent(in) :: mean,g_var,space(:),c_mean,c_space(:), &
+      sc_vals(:,:,:), Yi_vals(:,:,:)
     real(8), intent(out) :: y_int(:),Yi_int(:)
     ! local data
     integer :: i,loc,j
@@ -240,11 +240,11 @@ module pdf
     y_int(:)=0.d0
     Yi_int(:)=0.d0
     !
-    alpha_z=mean*(((mean*(1.d0-mean))/g_var)-1.d0)
-    beta_z=(1.d0-mean)*(((mean*(1.d0-mean))/g_var)-1.d0)
+    alpha_z=mean*((1.d0/g_var)-1.d0)
+    beta_z=(1.d0-mean)*((1.d0/g_var)-1.d0)
     !
     !      ===== integration by part ====
-    space(1)=smaller
+    ! space(1)=smaller
     !
     do i=1,n_points_z-1
         cdf001(i) =betai(alpha_z,beta_z,(space(i)+space(i+1))/2.0)

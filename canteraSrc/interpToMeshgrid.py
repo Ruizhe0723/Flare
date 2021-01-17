@@ -28,7 +28,9 @@ from scipy import interpolate
 Load Cantera data and interpolate to meshgrid
 
 =========================================================================== '''
-def interpLamFlame(work_dir,solIdx,cbDict,meshgrid):
+def interpLamFlame(solIdx,cbDict,meshgrid):
+
+    work_dir = cbDict['work_dir']
 
     # read laminar flame global parameters & write Table_5
     solFln = (work_dir + 'canteraData/solution_'
@@ -50,7 +52,7 @@ def interpLamFlame(work_dir,solIdx,cbDict,meshgrid):
     streamBC = np.loadtxt(solFln + 'lamParameters.txt',
                           skiprows=1+cbDict['nchemfile'])
 
-    fln = work_dir + 'flare.tbl'
+    fln = work_dir + cbDict['output_fln']
     with open(fln,'w') as strfile:
       #
       strfile.write('%.5E' % streamBC[0,6] + '\t' +
@@ -99,30 +101,42 @@ def interpLamFlame(work_dir,solIdx,cbDict,meshgrid):
             print('c_max/c_end =',mainData[i,imax,0]/mainData[i,len_grid-1,0],
                   ' --> overshooting')
 
-        omega_cIn[i,:] = mainData[i,:,1] / mainData[i,imax,0]
+        if(cbDict['scaled_PV']):
+          omega_cIn[i,:] = mainData[i,:,1] / mainData[i,imax,0]
+        else:
+          omega_cIn[i,:] = mainData[i,:,1]
 
         # Yc_eq[i] = mainData[i,-1,0]
         # # calculate d2Yc_eq/dZ2 & write Table 2
         # generateTable2(lamArr[:,1],Yc_eq)
 
     # interpolate in c space & write out for each flamelet
-    MatScl_c = np.zeros((cbDict['nchemfile'],cbDict['cUnifPts'],nScalCant))
+    MatScl_c = np.zeros((cbDict['nchemfile'],cbDict['cUnifPts'],
+                         nScalCant+1))
     for i in range(cbDict['nchemfile']):
         len_grid = int(lamArr[i,2])
         ctrim = cIn[i,:len_grid-1]
+        # 0:c|1:omg_c
         MatScl_c[i,:,0] = np.linspace(0.,1.,cbDict['cUnifPts'])
         MatScl_c[i,:,1] = np.matlib.interp(MatScl_c[i,:,0],ctrim,
                                          omega_cIn[i,:len_grid-1])
+        # 2:T|3:rho|4:cp|5:mw|6:hf_0|7:nu|8:h|9:qdot
         for k in range(2,nScalCant):
             MatScl_c[i,:,k] = np.matlib.interp(MatScl_c[i,:,0],ctrim,
                                              mainData[i,:len_grid-1,k])
+        # cp-->cp_e
         MatScl_c[i,:,4] = calculateCp_eff(MatScl_c[i,:,2],MatScl_c[i,:,4],
-                                        lamArr[i,7])
+                                          lamArr[i,7])
+        # Yc_max
+        MatScl_c[i,:,-1] = mainData[i,len_grid-1,0]
+
+        # write inpterpolated 1D profiles
         fln = (solFln+'Unf_'+casename+'_'+str('{:03d}'.format(i))+'.dat')
         print('\nWriting --> ' + fln)
         np.savetxt(fln,MatScl_c[i,:,:],fmt='%.5e')
 
-    oriSclMat = np.zeros([cbDict['nchemfile']+2,cbDict['cUnifPts'],nScalCant])
+    oriSclMat = np.zeros([cbDict['nchemfile']+2,cbDict['cUnifPts'],
+                          nScalCant+1])
     ind_list_Yis = []
     for i in range(len(streamBC[:,0])):
 
@@ -146,7 +160,7 @@ def interpLamFlame(work_dir,solIdx,cbDict,meshgrid):
     oriSclMat[1:cbDict['nchemfile']+1,:,:] = MatScl_c
 
     intpSclMat = np.zeros([len(meshgrid['z_space']),len(meshgrid['c_space']),
-                           cbDict['nVarCant']+1])
+                           cbDict['nVarCant']+2])
     intpYiMat = np.zeros([len(meshgrid['z_space']),len(meshgrid['c_space']),
                         cbDict['nYis']])
     Z_pts = np.insert(lamArr[:,1],0,[0.],axis=0)
@@ -167,6 +181,8 @@ def interpLamFlame(work_dir,solIdx,cbDict,meshgrid):
         iy = ind_list_Yis[y]
         intpYiMat[:,:,y] = interp2D(oriSclMat[:,:,iy+cbDict['nVarCant']],
                                             Z_pts,c_pts,meshgrid)
+    intpSclMat[:,:,11] = interp2D(oriSclMat[:,:,-1],Z_pts,c_pts,meshgrid) # qdot
+
     print('\nInterpolation done. ')
 
     if np.sum(np.isnan(intpSclMat)) > 0:

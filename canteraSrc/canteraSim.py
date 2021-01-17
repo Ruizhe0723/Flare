@@ -23,7 +23,9 @@ import os
 #
 # =============================================================================
 
-def adiabaticFlame(work_dir,solIdx,cbDict):
+def adiabaticFlame(solIdx,cbDict):
+
+  work_dir = cbDict['work_dir']
 
   path=work_dir + 'canteraData/'
   if not os.path.isdir(path): os.mkdir(path)

@@ -11,10 +11,8 @@ module integrate
     !
   real(8),allocatable :: &
     c_int(:),z_int(:),gz_int(:),gc_int(:),gcz_int(:)
-  real(8) :: small,clip,smaller,fmix_min,fmix_max
-  parameter (small = 1.0d-04)
-  parameter (smaller = 1.0d-08)
-  parameter (clip = 2.0d-04)
+  real(8) :: fmix_min,fmix_max
+  ! parameter (smaller = 1.0d-08)
   !
   contains
   !

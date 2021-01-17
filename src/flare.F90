@@ -29,7 +29,7 @@ program main
       integer ::  i,j,k,l,m,i1,iii,iiii,jjjj,z_loc,c_loc,solIdx
       real(8),allocatable :: c_space(:),z_space(:),yint(:),Yi_int(:), &
                              Src_vals(:,:,:),Yi_vals(:,:,:)
-      real(8) :: gc,gz,gcz
+      real(8) :: c_var,z_var,co_var
       real(8),parameter :: theta = 1.0d0
       character(len=2) :: strUnit2,strDouble
 
@@ -72,9 +72,9 @@ program main
             enddo
         enddo
         close(20)
-        if(my_id==1) write(*,*) 'Done reading chemTab.'
         call MPI_Barrier(MPI_COMM_WORLD,ierr)
-
+        if(my_id==1) write(*,*) 'Done reading chemTab.'
+        
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! + +
 ! + +                          MPI allocation
@@ -102,7 +102,7 @@ program main
      iUnit_high = load_idx(my_id+1)
    endif
 
-    write(*,*) my_id,' integrating from ',iUnit_low, '-',iUnit_high
+    print*,'Proc',my_id,' integrate',iUnit_low, '-',iUnit_high
 
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! + +
@@ -130,8 +130,6 @@ program main
 
            z_loc=locate(z_space,n_points_z,z_int(i1))
            c_loc=locate(c_space,n_points_c,c_int(j))
-           gc=gc_int(l)*(c_int(j)*(1.0-c_int(j)))
-           gz=gz_int(k)*(z_int(i1)*(1.0-z_int(i1)))
 
            !! Z=0 or Z=1
            IF((i1==1).or.(i1==int_pts_z))then
@@ -157,32 +155,26 @@ program main
 
            !! gZ=0 and gc>0
            ELSEIF(  (k==1).and.(l.gt.1)  )then
-             call cbeta(c_int(j),gc,c_space,z_int(i1),z_space,yint &
-         ,Src_vals,Yi_int,Yi_vals)
+             call cbeta(c_int(j),gc_int(ii),c_space,z_int(i1),z_space, &
+                        yint,Src_vals,Yi_int,Yi_vals)
 
            !! gZ>0 and gc=0
            ELSEIF(  (k.gt.1).and.(l==1)  )then
-             call zbeta(z_int(i1),gz,z_space,c_int(j),c_space,yint &
-         ,Src_vals,Yi_int,Yi_vals)
+             call zbeta(z_int(i1),gz_int(ii),z_space,c_int(j),c_space, &
+                        yint,Src_vals,Yi_int,Yi_vals)
 
            !! gZ>0 and gc>0
            ELSE
-!             if((j==1))then
-!             c_mean = small
-!             elseif((j==int_pts_c))then
-!             c_mean = 1.-small
-!             else
-!             c_mean = c_int(j)
-!             endif
-!             gc=gc_int(l)*(c_mean*(1.0-c_mean))
+
              if((j==1).or.(j==int_pts_c))then
                goto 99
              endif
 
-             gcz = gcz_int(m)*sqrt(gc)*sqrt(gz)*0.98
-               call int_point(z_int(i1),c_int(j),gc &
-                  ,gz,gcz,yint,z_space,c_space,Src_vals &
-                  ,Yi_int,Yi_vals,theta)
+             c_var=gc_int(l)*(c_int(j)*(1.0-c_int(j)))
+             z_var=gz_int(k)*(z_int(i1)*(1.0-z_int(i1)))
+             co_var = gcz_int(m)*sqrt(c_var)*sqrt(z_var)*0.98d0
+               call int_point(z_int(i1),c_int(j),c_var,z_var,co_var, &
+                  yint,z_space,c_space,Src_vals,Yi_int,Yi_vals,theta)
 
            ENDIF
 

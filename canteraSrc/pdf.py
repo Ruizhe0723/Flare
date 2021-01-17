@@ -27,21 +27,39 @@ import os
 Integrate meshgrid laminar data with PDFs
 
 =========================================================================== '''
-def integrate(work_dir,exe_path,n_procs):
+def integrate(cbDict):
 
-  # execute the Fortran code
+  work_dir = cbDict['work_dir']
+
+  cwd = os.getcwd()
+
+  # set up environment
   print("\n Changing directory to:")
   os.chdir(work_dir)
   os.system("pwd")
-  os.system("mpirun -np " + str(n_procs) + " " + exe_path)
+  #
+  os.system("pkill 'flare'")
+  #
+  if os.path.isfile('unit01_h01.dat'):
+    os.system("rm unit*")
 
+  # execute the Fortran code
+  os.system("mpirun -np " + str(cbDict['n_procs']) + " "
+            + cbDict['exe_path'])
+
+  # change directory back
+  print("\n Changing directory to:")
+  os.chdir(cwd)
+  os.system("pwd")
 
 ''' ===========================================================================
 
 Assemble integrated MPI unit files
 
 =========================================================================== '''
-def assemble(work_dir,cbDict):
+def assemble(cbDict):
+
+  work_dir = cbDict['work_dir']
 
   # read integrated units
   fln = work_dir
@@ -60,15 +78,21 @@ def assemble(work_dir,cbDict):
       #
       M = np.insert(tmp,0,M,axis=0)
 
-  # remove unwanted columns - last two for qdot and h / Yis
-  MM = np.delete(M,[12,13],axis=1)
+  # remove unwanted columns - h(12),qdot(13),Yc_max(14)
+  if(cbDict['scaled_PV']):
+    rm_list = [12,13,14]
+  else:
+    rm_list = [12,13]
+  MM = np.delete(M,rm_list,axis=1)
+
+  # separate scalars and Yis
   if cbDict['nYis'] > 0:
     ind = -cbDict['nYis']
-    MM = MM[:,:ind]
+    MS = MM[:,:ind]
     YM = M[:,ind:]
 
   # write assembled table
-  fln = work_dir + 'flare.tbl'
+  fln = work_dir + cbDict['output_fln']
   print('Writing assembled table ...')
   with open(fln,'a') as strfile:
     #
@@ -76,9 +100,10 @@ def assemble(work_dir,cbDict):
                   str(cbDict['int_pts_c']) + '\t' +
                   str(cbDict['int_pts_gz']) + '\t' +
                   str(cbDict['int_pts_gc']) + '\t' +
-                  str(cbDict['int_pts_gcz']) + '\n' )
+                  str(cbDict['int_pts_gcz']) + '\t' +
+                  str(MS.shape[1]) + '\n' )
     #
-    np.savetxt(strfile,MM[:,0:12],fmt='%.5E',delimiter='\t')
+    np.savetxt(strfile,MS,fmt='%.5E',delimiter='\t')
     #
   strfile.close()
 
