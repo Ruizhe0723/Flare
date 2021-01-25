@@ -1,6 +1,6 @@
 clear all; clc; close all
 
-data = dlmread('chemTab_01.dat');
+data = dlmread('../flareTable_unscaled_Tox245K/chemTab_01.dat');
 
 Z = reshape(data(:,1),[401 501]);
 Z = squeeze(Z(1,:));
@@ -8,7 +8,7 @@ Z = squeeze(Z(1,:));
 c = reshape(data(:,2),[401 501]);
 c = squeeze(c(:,1));
 
-%%
+%
 close all
 
 for ii = 3:size(data,2)
@@ -25,7 +25,7 @@ end
 %%
 % clear all; clc; close all
 
-fln = '../flare.tbl';
+fln = '../flareTable_scaled_Tox245K/flare.tbl';
 nchem = dlmread(fln,'\t',[1 0 1 0]);
 
 dims = dlmread(fln,'\t',[2+nchem 0 2+nchem 4]);
@@ -55,7 +55,7 @@ gZc = reshape(data_scal(:,5),[NgZc Ngc NgZ Nc NZ]);
 gZc = squeeze(gZc(:,1,1,1,1));
 
 %
-for ii = 12
+for ii = 6:13
     Q = reshape(data_scal(:,ii),[NgZc Ngc NgZ Nc NZ]);
 
 % figure

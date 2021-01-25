@@ -26,6 +26,7 @@ import os
 def adiabaticFlame(solIdx,cbDict):
 
   work_dir = cbDict['work_dir']
+  if not os.path.isdir(work_dir): os.mkdir(work_dir)
 
   path=work_dir + 'canteraData/'
   if not os.path.isdir(path): os.mkdir(path)
@@ -47,14 +48,14 @@ def adiabaticFlame(solIdx,cbDict):
 
   W_fuel = fuel_C * 12. + fuel_H * 1.0 # DO NOT CHANGE - fuel molar weight
 
-  T_fuel = 315. # Fuel temperature [K]
+  T_fuel = 245. # Fuel temperature [K]
   X_fuel = 'CH4:1' # Fuel composition (in mole fraction)
 
   ## Oxidiser characteristics
   W_O2 = 2. * 16. # DO NOT CHANGE - molar weight of O2
   W_N2 = 2. * 14. # DO NOT CHANGE - molar weight of N2
 
-  T_ox = 315. # oxidiser temperature [K]
+  T_ox = 333. # oxidiser temperature [K]
   X_ox = 'O2:0.21, N2:0.79' # oxidiser composition (in mole fraction)
 
   ## Mixture properties

@@ -28,7 +28,7 @@ from scipy import interpolate
 Load Cantera data and interpolate to meshgrid
 
 =========================================================================== '''
-def interpLamFlame(solIdx,cbDict,meshgrid):
+def interpLamFlame(solIdx,cbDict,contVarDict,meshgrid):
 
     work_dir = cbDict['work_dir']
 
@@ -74,7 +74,7 @@ def interpLamFlame(solIdx,cbDict,meshgrid):
     mainData = np.zeros((cbDict['nchemfile'],int(max(lamArr[:,2])),nScalCant))
     cIn = np.zeros(np.shape(mainData[:,:,0]))
     omega_cIn = np.zeros(np.shape(mainData[:,:,0]))
-    # Yc_eq = np.zeros((cbDict['nchemfile']))
+    Yc_eq = np.zeros((cbDict['nchemfile']))
     for i in range(cbDict['nchemfile']):
         fln = (solFln + casename + '_' + str('{:03d}'.format(i)) + '.csv')
         print('\nReading --> ' + fln)
@@ -102,13 +102,15 @@ def interpLamFlame(solIdx,cbDict,meshgrid):
                   ' --> overshooting')
 
         if(cbDict['scaled_PV']):
-          omega_cIn[i,:] = mainData[i,:,1] / mainData[i,imax,0]
+          Yc_eq[i] = mainData[i,imax,0]
+          omega_cIn[i,:] = mainData[i,:,1] / Yc_eq[i]
         else:
           omega_cIn[i,:] = mainData[i,:,1]
 
-        # Yc_eq[i] = mainData[i,-1,0]
-        # # calculate d2Yc_eq/dZ2 & write Table 2
-        # generateTable2(lamArr[:,1],Yc_eq)
+    d2Yeq_table = []
+    if(cbDict['scaled_PV']):
+      d2Yeq_table = generateTable2(lamArr[:,1],Yc_eq,contVarDict)
+
 
     # interpolate in c space & write out for each flamelet
     MatScl_c = np.zeros((cbDict['nchemfile'],cbDict['cUnifPts'],
@@ -160,7 +162,7 @@ def interpLamFlame(solIdx,cbDict,meshgrid):
     oriSclMat[1:cbDict['nchemfile']+1,:,:] = MatScl_c
 
     intpSclMat = np.zeros([len(meshgrid['z_space']),len(meshgrid['c_space']),
-                           cbDict['nVarCant']+2])
+                           cbDict['nScalars']])
     intpYiMat = np.zeros([len(meshgrid['z_space']),len(meshgrid['c_space']),
                         cbDict['nYis']])
     Z_pts = np.insert(lamArr[:,1],0,[0.],axis=0)
@@ -181,7 +183,12 @@ def interpLamFlame(solIdx,cbDict,meshgrid):
         iy = ind_list_Yis[y]
         intpYiMat[:,:,y] = interp2D(oriSclMat[:,:,iy+cbDict['nVarCant']],
                                             Z_pts,c_pts,meshgrid)
-    intpSclMat[:,:,11] = interp2D(oriSclMat[:,:,-1],Z_pts,c_pts,meshgrid) # qdot
+    # Yc_max
+    if cbDict['scaled_PV']:
+      intpSclMat[:,:,11] = 1.0
+    else:
+      intpSclMat[:,:,11] = interp2D(oriSclMat[:,:,-1],Z_pts,c_pts,
+                                    meshgrid)
 
     print('\nInterpolation done. ')
 
@@ -205,6 +212,8 @@ def interpLamFlame(solIdx,cbDict,meshgrid):
     np.savetxt(fln,stackMat,fmt='%.5E')
     print('\nDone.')
 
+    return d2Yeq_table
+
 ''' ===========================================================================
 
 Subroutine functions
@@ -212,54 +221,80 @@ Subroutine functions
 =========================================================================== '''
 
 def calculateCp_eff(T,cp_m,lam_sumCpdT):
-    cp_e = np.zeros(np.shape(cp_m))
-    T_0 = 298.15
-    if abs(T[0] - T_0) > 0.1: cp_e[0] = lam_sumCpdT / (T[0] - T_0)
-    else: cp_e[0] = cp_m[0]
-    for ii in range(1,len(T)):
-            tmp_sum = 0.
-            for j in range(1,ii+1):
-                tmp_sum = (tmp_sum + 0.5*(cp_m[j]+cp_m[j-1])*(T[j]-T[j-1]))
-            cp_e[ii] = (tmp_sum + lam_sumCpdT) / abs(T[ii] - T_0)
-    return cp_e
+  cp_e = np.zeros(np.shape(cp_m))
+  T_0 = 298.15
+  if abs(T[0] - T_0) > 0.1: cp_e[0] = lam_sumCpdT / (T[0] - T_0)
+  else: cp_e[0] = cp_m[0]
+  for ii in range(1,len(T)):
+          tmp_sum = 0.
+          for j in range(1,ii+1):
+              tmp_sum = (tmp_sum + 0.5*(cp_m[j]+cp_m[j-1])*(T[j]-T[j-1]))
+          cp_e[ii] = (tmp_sum + lam_sumCpdT) / abs(T[ii] - T_0)
+  return cp_e
 
 def interp2D(M_Zc,Z_pts,c_pts,meshgrid):
-    f = interpolate.interp2d(c_pts,Z_pts,M_Zc)
-    intpM_Zc = f(meshgrid['c_space'],meshgrid['z_space'])
-    return intpM_Zc
+  f = interpolate.interp2d(c_pts,Z_pts,M_Zc)
+  intpM_Zc = f(meshgrid['c_space'],meshgrid['z_space'])
+  return intpM_Zc
 
-# def generateTable2(Z0,Yc_eq0):
-#     Z0 = lamArr[:,1]
-#     Yc_eq0 = Yc_eq
-#     from scipy.interpolate import UnivariateSpline
-#     sp = UnivariateSpline(Z0,Yc_eq0,s=0)
-#     Z1 = np.linspace(min(Z0),0.085,101);
-#     Yc_eq1 = sp(Z1)
-# #    plt.plot(Z0,Yc_eq0,label='original')
-# #    plt.plot(Z1,Yc_eq1,label='spline')
-# #    plt.legend()
-# #    plt.show()
-#     d2 = sp.derivative(n=2)
-#     d2Yc_eq1 = d2(Z1)
-#     sp = UnivariateSpline(Z1,d2Yc_eq1)
-#     d2Yc_eq2 = sp(Z1)nScalars
-#     from scipy.signal import savgol_filter
-#     d2Yc_eq3 = savgol_filter(d2Yc_eq2, 11, 3)
-#     plt.plot(Z1,d2Yc_eq1,label='original')
-#     plt.plot(Z1,d2Yc_eq3,label='spline')
-#     plt.legend()
-#     plt.show()
-#     '''
-#         INCOMPLETE
-#                     '''
+def generateTable2(lamArr,Yc_eq,contVarDict):
+  Z0 = lamArr
+  Yc_eq0 = Yc_eq
 
-#def scatterInterp(M_Zc):
-#    Zcoor_1D = np.reshape(Z_grid,[np.shape(Z_grid)[0]*np.shape(Z_grid)[1],1])
-#    ccoor_1D = np.reshape(c_grid,[np.shape(c_grid)[0]*np.shape(c_grid)[1],1])
-#    M_Zc1D = np.reshape(M_Zc,[np.shape(M_Zc)[0]*np.shape(M_Zc)[1],1])
-#    M_Zc_intp = np.squeeze(griddata(np.hstack((ccoor_1D,Zcoor_1D)),
-#                                    M_Zc1D,(grid_Z, grid_c),
-#                                    method='linear'
-#                                    )
-#                            )
-#    return M_Zc_intp
+  from scipy.interpolate import UnivariateSpline
+  sp = UnivariateSpline(Z0,Yc_eq0,s=0)
+  Z_low_cutoff = 0.03
+  Z_high_cutoff = 0.07
+  Z1 = np.linspace(Z0[0],Z_high_cutoff,101);
+  Yc_eq1 = sp(Z1)
+
+  import matplotlib.pyplot as plt
+  plt.plot(Z0,Yc_eq0,label='original')
+  plt.plot(Z1,Yc_eq1,label='spline')
+  plt.legend()
+  plt.show()
+
+  d2 = sp.derivative(n=2)
+  d2Yc_eq1 = d2(Z1)
+  sp = UnivariateSpline(Z1,d2Yc_eq1)
+  d2Yc_eq2 = sp(Z1)
+
+  from scipy.signal import savgol_filter
+  d2Yc_eq3 = savgol_filter(d2Yc_eq2, 11, 3)
+  plt.plot(Z1,d2Yc_eq1,label='original')
+  plt.plot(Z1,d2Yc_eq3,label='spline')
+  plt.legend()
+  plt.show()
+
+  z_int = contVarDict['z']
+  gz_int = contVarDict['gz']
+  gradd2 = np.gradient(d2Yc_eq3,Z1[1]-Z1[0])
+
+  from scipy.stats import beta
+  d2Yeq_int = np.zeros((len(z_int),len(gz_int)));
+  for i in range(1,len(z_int)-1):
+    if z_int[i] > Z_high_cutoff or z_int[i] < Z_low_cutoff:
+      d2Yeq_int[i,:] = 0.0
+    else:
+      d2Yeq_int[i,0] =np.interp(z_int[i],Z1,d2Yc_eq3)
+      for j in range(1,len(gz_int)):
+        a = z_int[i]*(1.0/gz_int[j]-1.0)
+        b = (1.0 - z_int[i])*(1.0/gz_int[j]-1.0)
+        Cb = beta.cdf(Z1,a,b)
+        d2Yeq_int[i,j] = d2Yc_eq3[-1] - np.trapz(gradd2*Cb,Z1)
+
+  d2Yeq_int_1D = np.zeros((d2Yeq_int.flatten()).shape)
+  count = 0
+  for i in range(len(z_int)):
+    for j in range(len(gz_int)):
+      d2Yeq_int_1D[count] = d2Yeq_int[i][j]
+      count = count + 1
+
+  return d2Yeq_int_1D
+
+
+
+
+
+
+

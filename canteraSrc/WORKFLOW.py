@@ -6,11 +6,11 @@ Created on Fri Apr  3 14:53:00 2020
 @author: zc252
 """
 
-# %% ==========================================================================
+# %% ======================================================================
 #
 # Imports
 #
-# =============================================================================
+# =========================================================================
 
 import commonBlock
 
@@ -20,31 +20,44 @@ import interpToMeshgrid
 
 import pdf
 
-#%% ==========================================================================
+# %% ======================================================================
 #
-# Initial setup
+# Load common dictionary
 #
-# =============================================================================
+# =========================================================================
 
 cbDict = commonBlock.load_dict()
 
-meshgrid = commonBlock.create_meshgrid(cbDict)
-
-commonBlock.create_manifold(cbDict)
-
-# %% ==========================================================================
-#
-#
-#
-# =============================================================================
+contVarDict = commonBlock.create_manifold(cbDict)
 
 solIdx = 1
 
+# %% ======================================================================
+#
+# Run cantera simulations
+#
+# =========================================================================
+
 canteraSim.adiabaticFlame(solIdx,cbDict)
 
-interpToMeshgrid.interpLamFlame(solIdx,cbDict,meshgrid)
+# %% ======================================================================
+#
+# Interpolate to meshgrid and write first small part of table
+#
+# =========================================================================
+
+meshgrid = commonBlock.create_meshgrid(cbDict)
+
+d2Yeq_table = interpToMeshgrid.interpLamFlame(solIdx,cbDict,contVarDict,
+                                              meshgrid)
+
+# %% ======================================================================
+#
+# Integrate pdf and write big part of table
+#
+# =========================================================================
 
 pdf.integrate(cbDict)
 
-pdf.assemble(cbDict)
+pdf.assemble(cbDict,contVarDict,d2Yeq_table)
 

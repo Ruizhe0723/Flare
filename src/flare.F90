@@ -2,7 +2,7 @@
 ! Copyright
 !
 ! Application
-!   FlaRe Combustion Model - Turbulent flame manifold
+!   FlaRe Combustion Model-Turbulent flame manifold
 !
 ! Description
 !   This Fortran code describes the flamelet manifold integration
@@ -18,190 +18,190 @@ program main
   use func, only: locate
   !
   implicit none
+  !
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-! + +
-! + +                          Declaration
-! + +
-! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-      integer ::  ierr,nproc,my_id,load_distro(0:9999),load_idx(0:9999)
-      integer ::  iUnit_low,iUnit_high,nwork,iproc
-      integer ::  i,j,k,l,m,i1,iii,iiii,jjjj,z_loc,c_loc,solIdx
-      real(8),allocatable :: c_space(:),z_space(:),yint(:),Yi_int(:), &
-                             Src_vals(:,:,:),Yi_vals(:,:,:)
-      real(8) :: c_var,z_var,co_var
-      real(8),parameter :: theta = 1.0d0
-      character(len=2) :: strUnit2,strDouble
-
-! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-! + +
-! + +                          MPI setup
-! + +
+! ++
+! ++                          Declaration
+! ++
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-      call MPI_INIT(ierr)
-      call MPI_COMM_RANK(MPI_COMM_WORLD,my_id,ierr)
-      call MPI_COMM_SIZE(MPI_COMM_WORLD,nproc,ierr)
+  integer ::  ierr,nproc,my_id,load_distro(0:9999),load_idx(0:9999)
+  integer ::  iUnit_low,iUnit_high,nwork,iproc
+  integer ::  i,j,iz,ic,igz,igc,igcz,jj,z_loc,c_loc,solidx
+  real(8) :: c_var,z_var,co_var
+  character(len=2) :: str_iz,str_ih
 
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-! + +
-! + +           Interpolation from laminar flame table to chemTab
-! + +
+! ++
+! ++                          MPI setup
+! ++
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    call read_integrate_inp(my_id)
-    call MPI_Barrier(MPI_COMM_WORLD,ierr)
+  call MPI_INIT(ierr)
+  call MPI_COMM_RANK(MPI_COMM_WORLD,my_id,ierr)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD,nproc,ierr)
+  !
+  call read_integrate_inp(my_id)
+  call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+  !
+  nwork=int_pts_z
+  !
+  do iproc=1,nproc
     !
-    allocate( &
-      c_space(n_points_c),z_space(n_points_z),yint(nScalars), &
-      Yi_int(nYis),Src_vals(n_points_z,n_points_c,nScalars), &
-      Yi_vals(n_points_z,n_points_c,nYis),)
+    load_distro(iproc)=floor(dble(nwork)/(nproc-iproc+1))
+    nwork=nwork-load_distro(iproc)
+    !
+  enddo
+  !
+  load_idx(1)=load_distro(1)
+  !
+  do iproc=1,nproc-1
+   load_idx(iproc+1)=load_idx(iproc)+load_distro(iproc+1)
+  enddo
+  !
+  if(my_id==0) then
+    !
+    iUnit_low=1
+    iUnit_high=load_idx(1)
+    !
+  elseif(my_id.eq.(nproc-1)) then
+    !
+    iUnit_low=load_idx(my_id)+1
+    iUnit_high=int_pts_z
+    !
+  else
+    !
+   iUnit_low=load_idx(my_id)+1
+   iUnit_high=load_idx(my_id+1)
+   !
+  endif
 
-      DO solIdx = 1,n_points_h
+! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! ++
+! ++           Interpolation from laminar flame table to chemTab
+! ++
+! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-        write(strDouble,'(I2.2)') solIdx
-        if(my_id==1) write(*,*) 'Reading chemTab...'
-        open(unit=20, file='chemTab_'//strDouble//'.dat', status='old')
-!        read(20,*) dumStr
-!        read(20,*) dumStr
-        do i=1,n_points_z
-            do j=1,n_points_c
-            read(20,*) z_space(i),c_space(j) &
-                     ,(Src_vals(i,j,iii),iii=1,nScalars) &
-                     ,(Yi_vals(i,j,iii),iii=1,nYis)
-            enddo
-        enddo
-        close(20)
-        call MPI_Barrier(MPI_COMM_WORLD,ierr)
-        if(my_id==1) write(*,*) 'Done reading chemTab.'
-        
+  do solidx=1,n_points_h
+    !
+    write(str_ih,'(I2.2)') solidx
+    !
+    if(my_id==1) print*, 'Reading chemTab...'
+    !
+    open(unit=20, file='chemTab_'//str_ih//'.dat', status='old')
+    !
+    do i=1,n_points_z
+      !
+      do j=1,n_points_c
+        !
+        read(20,*) z_space(i),c_space(j), &
+                   (Src_vals(i,j,jj),jj=1,nScalars), &
+                   (Yi_vals(i,j,jj),jj=1,nYis)
+      enddo
+      !
+    enddo
+    !
+    close(20)
+    !
+    if(my_id==1) print*, 'Done reading chemTab.'
+    !
+    call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-! + +
-! + +                          MPI allocation
-! + +
+! ++
+! ++                       Final integration
+! ++
 ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-! Load distribution across cores
-   nwork = int_pts_z
-   do iproc=1,nproc
-     load_distro(iproc) = floor(dble(nwork)/(nproc - iproc +1))
-     nwork = nwork - load_distro(iproc)
-   enddo
-   load_idx(1) = load_distro(1)
-   do iproc = 1,nproc-1
-     load_idx(iproc+1) = load_idx(iproc) + load_distro(iproc+1)
-   enddo
-!        write(*,*) load_idx(1:nproc)
-   if (my_id.eq.0) then
-     iUnit_low = 1
-     iUnit_high = load_idx(1)
-   elseif (my_id.eq.(nproc-1)) then
-     iUnit_low = load_idx(my_id) +1
-     iUnit_high = int_pts_z
-   else
-     iUnit_low = load_idx(my_id) + 1
-     iUnit_high = load_idx(my_id+1)
-   endif
 
     print*,'Proc',my_id,' integrate',iUnit_low, '-',iUnit_high
-
-! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-! + +
-! + +                       Final integration
-! + +
-! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-!     looping in Z space
-         do i1 = iUnit_low,iUnit_high
-         write(strUnit2,'(I2.2)') i1
-         write(strDouble,'(I2.2)') solIdx
-         open(unit=7, file='unit'//strUnit2//'_h' &
-              //strDouble//'.dat')
-!          open(unit=77, file='Yiunit'//strUnit2//'_'//strDouble//'.dat')
-
-!     looping in c space
-         do j=1,int_pts_c
-!     looping in gZ space
-           do k=1,int_pts_gz
-!     looping in gc space
-             do l=1,int_pts_gc
-!     looping in gZc space
-               do m=1,int_pts_gcz       !!*!! gZc=0
-!     convert to variances
-
-           z_loc=locate(z_space,n_points_z,z_int(i1))
-           c_loc=locate(c_space,n_points_c,c_int(j))
-
-           !! Z=0 or Z=1
-           IF((i1==1).or.(i1==int_pts_z))then
-             yint(2) = 0.
-             yint(3) = 0.
-             yint(4) = 0.
-
-             if(i1==int_pts_z)then
-               z_loc = z_loc + 1
-             endif
-             do jjjj=5,nScalars
-              yint(jjjj) = Src_vals(z_loc,1,jjjj)
-             enddo
-             do iiii=1,nYis
-              Yi_int(iiii) = Yi_vals(z_loc,1,iiii)
-             enddo
-
-           !! gZ=0 and gc=0
-         ELSEIF(  ((k==1).and.(l==1)) .or. ((k==1).and.(j==1)) &
-              .or.((k==1).and.(j==int_pts_c))  )then
-             call delta(z_int(i1),c_int(j),z_space,c_space,yint &
-         ,Src_vals,Yi_int,Yi_vals)
-
-           !! gZ=0 and gc>0
-           ELSEIF(  (k==1).and.(l.gt.1)  )then
-             call cbeta(c_int(j),gc_int(ii),c_space,z_int(i1),z_space, &
-                        yint,Src_vals,Yi_int,Yi_vals)
-
-           !! gZ>0 and gc=0
-           ELSEIF(  (k.gt.1).and.(l==1)  )then
-             call zbeta(z_int(i1),gz_int(ii),z_space,c_int(j),c_space, &
-                        yint,Src_vals,Yi_int,Yi_vals)
-
-           !! gZ>0 and gc>0
-           ELSE
-
-             if((j==1).or.(j==int_pts_c))then
-               goto 99
-             endif
-
-             c_var=gc_int(l)*(c_int(j)*(1.0-c_int(j)))
-             z_var=gz_int(k)*(z_int(i1)*(1.0-z_int(i1)))
-             co_var = gcz_int(m)*sqrt(c_var)*sqrt(z_var)*0.98d0
-               call int_point(z_int(i1),c_int(j),c_var,z_var,co_var, &
+    !
+    do iz=iUnit_low,iUnit_high
+      !
+      write(str_iz,'(I2.2)') iz
+      !
+      write(str_ih,'(I2.2)') solidx
+      !
+      open(unit=7, file='unit'//str_iz//'_h'//str_ih//'.dat')
+      !
+      z_loc=locate(z_space,n_points_z,z_int(iz))
+      !
+      do ic=1,int_pts_c
+        !
+        c_loc=locate(c_space,n_points_c,c_int(ic))
+        !
+        do igz=1,int_pts_gz
+          !
+          do igc=1,int_pts_gc
+            !
+            do igcz=1,int_pts_gcz
+              !
+              ! z = 0 or 1
+              if(iz==1.or.iz==int_pts_z) then
+                !
+                yint(2)=0.d0
+                yint(3)=0.d0
+                yint(4)=0.d0
+                !
+                if(iz==1) z_loc=1
+                if(iz==int_pts_z) z_loc=n_points_z
+                !
+                yint(5:nScalars)=Src_vals(z_loc,1,5:nScalars)
+                Yi_int(:)=Yi_vals(z_loc,1,:)
+                !
+              ! gZ=0 and gc=0
+              elseif((igz==1.and.igc==1).or.(igz==1.and.ic==1) &
+                .or.(igz==1.and.ic==int_pts_c)) then
+                !
+                call delta(z_int(iz),c_int(ic),z_space,c_space,yint, &
+                  Src_vals,Yi_int,Yi_vals)
+                  !
+              ! gZ=0 and gc>0
+              elseif(igz==1.and.igc>1) then
+                !
+                call cbeta(c_int(ic),gc_int(ii),c_space,z_int(iz), &
+                  z_space,yint,Src_vals,Yi_int,Yi_vals)
+                  !
+              ! gZ>0 and gc=0
+              elseif(igz>1.and.igc==1) then
+                !
+                call zbeta(z_int(iz),gz_int(ii),z_space,c_int(ic), &
+                  c_space,yint,Src_vals,Yi_int,Yi_vals)
+                  !
+              ! gZ>0 and gc>0
+              else
+                !
+                if((ic==1).or.(ic==int_pts_c)) goto 99
+                !
+                c_var=gc_int(igc)*(c_int(ic)*(1.0-c_int(ic)))
+                z_var=gz_int(igz)*(z_int(iz)*(1.0-z_int(iz)))
+                co_var=gcz_int(igcz)*sqrt(c_var)*sqrt(z_var)*0.98d0
+                !
+                call int_point(z_int(iz),c_int(ic),c_var,z_var,co_var, &
                   yint,z_space,c_space,Src_vals,Yi_int,Yi_vals,theta)
+                  !
+              endif
+              ! 1:rho|2:omg_c|3:coc|4:zoc|5:cp|6:mw|7:Hf0
+              ! 8:T|9:nu|10:Ycmax
+99            write(7,200) &
+            z_int(iz),c_int(ic),gz_int(igz),gc_int(igc),gcz_int(igcz), &
+            (yint(jj),jj=2,3),(yint(jj),jj=5,nScalars), &
+            (Yi_int(jj),jj=1,nYis)
+              !
+            enddo !igcz
+          enddo !igc
+        enddo !igz
+      enddo !ic
+      !
+      close(7)
+      !
+    enddo !iz
 
-           ENDIF
-
-!!*!! write out the scalars needed in cgs units
-!     1:rho 2:omegac 3:c*omegac 4:Cp 5:MW 6:Hf0 7:T 8:nu 9:h 10:qdot
-
- 99       write(7,200)z_int(i1),c_int(j),gz_int(k),gc_int(l),gcz_int(m)&
-              ,(yint(iii),iii=2,3),(yint(iii),iii=5,nScalars) &
-              ,(Yi_int(iii),iii=1,nYis)
-
-!        write(77,200)z_int(i1),c_int(j),gz_int(k),gc_int(l),gcz_int(m)
-!      &       ,(Yi_int(iii),iii=1,nYis)
-
-               enddo
-             enddo
-           enddo
-         enddo
-
-       close(7)
-!        close(77)
-       enddo
-
-      ENDDO
-       call MPI_FINALIZE ( ierr )
-
-       if(my_id==1) write(*,*) "Done"
-
- 200  format(25e15.5)
-
-    end program main
+  enddo !solidx
+  !
+  call MPI_FINALIZE(ierr)
+  !
+  if(my_id==1) print*, "Done"
+  !
+200  format(25e15.5)
+  !
+end program main

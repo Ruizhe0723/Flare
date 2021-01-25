@@ -50,7 +50,7 @@ module pdf
     enddo
     !
     y_int(2)=y_int(2)/y_int(1) !Zhi:omega_c/rho
-    y_int(3)=y_int(2)*c_mean ! gc_source
+    y_int(3)=y_int(2)*c_mean*y_int(nScalars) ! gc_source
     y_int(4)=y_int(2)*z_mean ! gz_source
     !
     do i=1,nYis     !    scalars !number of integral scalars Yi
@@ -86,7 +86,7 @@ module pdf
     real(8), intent(out) :: y_int(:),Yi_int(:)
     ! local data
     integer :: i,loc,j
-    real(8) :: fac,alpha_c,beta_c
+    real(8) :: fac,alpha_c,beta_c,Yc_0,Yc_1
     real(8) :: dYdc(nYis,n_points_c+1),cdf001(n_points_c), &
       dsdc(nScalars,n_points_c+1),sc_vals_int(n_points_c,nScalars), &
       Yi_vals_int(n_points_c,nScalars)
@@ -133,8 +133,10 @@ module pdf
                 -sc_vals_int(i,2)/sc_vals_int(i,1)) &
               /(space(i+1)-space(i))
         elseif(j==3) then !3:c*omegac
-          dsdc(j,i)=(space(i+1)*sc_vals_int(i+1,2)/sc_vals_int(i+1,1) &
-                -space(i)*sc_vals_int(i,2)/sc_vals_int(i,1)) &
+          Yc_0=space(i)*sc_vals_int(i,nScalars)
+          Yc_1=space(i+1)*sc_vals_int(i+1,nScalars)
+          dsdc(j,i)=(Yc_1*sc_vals_int(i+1,2)/sc_vals_int(i+1,1) &
+                -Yc_0*sc_vals_int(i,2)/sc_vals_int(i,1)) &
               /(space(i+1)-space(i))
         else !4:Z*omegac
           dsdc(j,i)=(z_mean*sc_vals_int(i+1,2)/sc_vals_int(i+1,1) &
@@ -208,13 +210,12 @@ module pdf
     use func, only: betai,locate,intfac
     !
     ! arguments
-    ! real(8), intent(inout) :: space(:)
     real(8), intent(in) :: mean,g_var,space(:),c_mean,c_space(:), &
       sc_vals(:,:,:), Yi_vals(:,:,:)
     real(8), intent(out) :: y_int(:),Yi_int(:)
     ! local data
     integer :: i,loc,j
-    real(8) :: fac,alpha_z,beta_z
+    real(8) :: fac,alpha_z,beta_z,Yc_0,Yc_1
     real(8) :: dYdc(nYis,n_points_z+1),cdf001(n_points_z), &
       dsdc(nScalars,n_points_z+1),sc_vals_int(n_points_z,nScalars), &
       Yi_vals_int(n_points_z,nScalars)
@@ -244,8 +245,6 @@ module pdf
     beta_z=(1.d0-mean)*((1.d0/g_var)-1.d0)
     !
     !      ===== integration by part ====
-    ! space(1)=smaller
-    !
     do i=1,n_points_z-1
         cdf001(i) =betai(alpha_z,beta_z,(space(i)+space(i+1))/2.0)
     enddo
@@ -265,8 +264,10 @@ module pdf
                /(space(i+1)-space(i))
                !
         elseif(j==3) then !3:c*omegac
-          dsdc(j,i)=(c_mean*sc_vals_int(i+1,2)/sc_vals_int(i+1,1) &
-                 -c_mean*sc_vals_int(i,2)/sc_vals_int(i,1)) &
+          Yc_0=c_mean*sc_vals_int(i,nScalars)
+          Yc_1=c_mean*sc_vals_int(i+1,nScalars)
+          dsdc(j,i)=(Yc_1*sc_vals_int(i+1,2)/sc_vals_int(i+1,1) &
+                 -Yc_0*sc_vals_int(i,2)/sc_vals_int(i,1)) &
                /(space(i+1)-space(i))
                !
         else !4:Z*omegac
@@ -382,7 +383,8 @@ module pdf
           Psi(i,j,k)=sc_vals(i,j,k)*plaF(i,j)
         enddo
         Psi(i,j,2)=sc_vals(i,j,2)*plaF(i,j)/sc_vals(i,j,1)
-        Psi(i,j,3)=sc_vals(i,j,2)*plaF(i,j)/sc_vals(i,j,1)*c_space(j)
+        Psi(i,j,3)=sc_vals(i,j,2)*plaF(i,j)/sc_vals(i,j,1)*c_space(j) &
+                   *sc_vals(i,j,nScalars)
         Psi(i,j,4)=sc_vals(i,j,2)*plaF(i,j)/sc_vals(i,j,1)*z_space(i)
         do k=1,nYis
          YiPsi(i,j,k)=Yi_vals(i,j,k)*plaF(i,j)
@@ -400,7 +402,8 @@ module pdf
         Psi(i,j,k)=sc_vals(i,j,k)*plaF(i,j)
       enddo
       Psi(i,j,2)=sc_vals(i,j,2)*plaF(i,j)/sc_vals(i,j,1)
-      Psi(i,j,3)=sc_vals(i,j,2)*plaF(i,j)/sc_vals(i,j,1)*c_space(j)
+      Psi(i,j,3)=sc_vals(i,j,2)*plaF(i,j)/sc_vals(i,j,1)*c_space(j) &
+                 *sc_vals(i,j,nScalars)
       Psi(i,j,4)=sc_vals(i,j,2)*plaF(i,j)/sc_vals(i,j,1)*z_space(i)
       do k=1,nYis
       YiPsi(i,j,k)=Yi_vals(i,j,k)*plaF(i,j)
@@ -428,7 +431,8 @@ module pdf
           Psi(i,j,k)=sc_vals(i,j,k)*plaF(i,j)
         enddo
         Psi(i,j,2)=sc_vals(i,j,2)*plaF(i,j)/sc_vals(i,j,1)
-        Psi(i,j,3)=sc_vals(i,j,2)*plaF(i,j)/sc_vals(i,j,1)*c_space(j)
+        Psi(i,j,3)=sc_vals(i,j,2)*plaF(i,j)/sc_vals(i,j,1)*c_space(j) &
+                   *sc_vals(i,j,nScalars)
         Psi(i,j,4)=sc_vals(i,j,2)*plaF(i,j)/sc_vals(i,j,1)*z_space(i)
         do k=1,nYis
           YiPsi(i,j,k)=Yi_vals(i,j,k)*plaF(i,j)
@@ -447,7 +451,8 @@ module pdf
         Psi(i,j,k)=sc_vals(i,j,k)*plaF(i,j)
       enddo
       Psi(i,j,2)=sc_vals(i,j,2)*plaF(i,j)/sc_vals(i,j,1)
-      Psi(i,j,3)=sc_vals(i,j,2)*plaF(i,j)/sc_vals(i,j,1)*c_space(j)
+      Psi(i,j,3)=sc_vals(i,j,2)*plaF(i,j)/sc_vals(i,j,1)*c_space(j) &
+                 *sc_vals(i,j,nScalars)
       Psi(i,j,4)=sc_vals(i,j,2)*plaF(i,j)/sc_vals(i,j,1)*z_space(i)
       do k=1,nYis
         YiPsi(i,j,k)=Yi_vals(i,j,k)*plaF(i,j)

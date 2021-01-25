@@ -29,14 +29,14 @@ def load_dict():
     commDict =  {
                      'work_dir' : ('/home/zc252/OpenFOAM_run/' +
                                    'TNF/new-case_reacting_2p6/' +
-                                   'flareTable_unscaledPV/'),
-
+                                   'flareTable_scaled_Tox245K/'),
                      'output_fln' : 'flare.tbl',
+
 
                     'chemMech' : chemMech,
                     'nSpeMech' : ct.Solution(chemMech).n_total_species,
                     'transModel' : 'Mix',
-                    'scaled_PV' : False,
+                    'scaled_PV' : True,
 
                     'f_min' : 2.85e-02,
                     'f_max' : 15.0e-02,
@@ -81,6 +81,7 @@ def create_meshgrid(cbDict):
 
   return meshgrid
 
+
 def create_manifold(cbDict):
 
   work_dir = cbDict['work_dir']
@@ -101,6 +102,16 @@ def create_manifold(cbDict):
   gc_int = np.linspace(0,1-cbDict['small'],cbDict['int_pts_gc'])
   #
   gcz_int = np.linspace(0,0,cbDict['int_pts_gcz'])
+
+  # save to dictionary
+  contVarDict = {
+              'z'  : z_int,
+              'c'  : c_int,
+              'gz' : gz_int,
+              'gc' : gc_int,
+              'gcz': gcz_int
+           }
+
 
   if not os.path.isdir(work_dir): os.mkdir(work_dir)
 
@@ -144,4 +155,4 @@ def create_manifold(cbDict):
 
   print('\nDone.')
 
-  return
+  return contVarDict

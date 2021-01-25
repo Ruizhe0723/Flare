@@ -1,5 +1,5 @@
 !+---------------------------------------------------------------------+
-!| The module is used to define global variables and arraries.         |
+!| The module is used to define global variables and arraies.          |
 !+---------------------------------------------------------------------+
 module integrate
   !
@@ -10,13 +10,17 @@ module integrate
     int_pts_gc,nYis,nScalars,nchemfile,nSpeMech,n_points_h,ii
     !
   real(8),allocatable :: &
-    c_int(:),z_int(:),gz_int(:),gc_int(:),gcz_int(:)
+    c_int(:),z_int(:),gz_int(:),gc_int(:),gcz_int(:), &
+    c_space(:),z_space(:),yint(:),Yi_int(:), &
+    Src_vals(:,:,:),Yi_vals(:,:,:)
+    !
   real(8) :: fmix_min,fmix_max
-  ! parameter (smaller = 1.0d-08)
+  !
+  real(8),parameter :: theta = 1.0d0
   !
   contains
   !
-  ! Z.Chen-----------interpolation points for laminar flame data------------------
+  ! Z.Chen-----------interpolation points for laminar flame data--------
   subroutine read_integrate_inp(my_id)
     !
     ! arguments
@@ -40,7 +44,7 @@ module integrate
     if(my_id==0) print*, '>> read n_points_c ---->',n_points_c
     if(my_id==0) print*, '>> read n_points_h ---->',n_points_h
     !
-    ! Z.Chen-----------turbulent table dimension------------------------------------
+    ! Z.Chen-----------turbulent table dimension------------------------
     !
     read(25,*) int_pts_z,int_pts_c,int_pts_gz,int_pts_gc,int_pts_gcz
     if(my_id==0) print*, '>> read int_pts_z ---->',int_pts_z
@@ -62,6 +66,11 @@ module integrate
     if(my_id==0) print*, '>> read nScalars ---->',nScalars
     if(my_id==0) print*, '>> read nYis ---->',nYis
     !
+    allocate( &
+      c_space(n_points_c),z_space(n_points_z),yint(nScalars), &
+      Yi_int(nYis),Src_vals(n_points_z,n_points_c,nScalars), &
+      Yi_vals(n_points_z,n_points_c,nYis))
+      !
   end subroutine read_integrate_inp
   !
 end module integrate
