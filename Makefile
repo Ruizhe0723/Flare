@@ -1,5 +1,5 @@
 # Fortran compiler
-FC = mpif90
+FC = /Users/huangruizhe/opt/usr/local/bin/mpif90
 # FC = gfortran
 
 # Quick non-optimized compile
